@@ -3,6 +3,7 @@ This contains the elements of the scrabble box: the board, the tiles, the rule b
 """
 from collections import Counter
 from game.exceptions import InvalidCoordinatesError, InvalidPlacementError, InvalidWordError, OutOfBoardError
+from game.scrabble_players import AIPlayer, HumanPlayer
 
 import colorama
 import json
@@ -42,7 +43,7 @@ class Board(object):
                 string_rep += str(hex(i))[-1] + '  ' + ' '.join([self.board[i][j] for j in range(15)]) + '\n'
         return string_rep
 
-    def place_word(self, word, coords, dir, tiles):
+    def place_word(self, word, coords, dir):
         """
         Places a word on the board, if valid
         :param word: The word to be placed, including both the tiles of the player and the tiles on the board.
@@ -50,32 +51,18 @@ class Board(object):
         :param dir: the direction, either down or right, from this first word in which the remainder will move.
         :param tiles: The rack of the player's tiles, checking that the word uses the correct tiles
         :return: None
-        :raises InvalidCoordinatesError:
-        :raises InvalidPlacementError:
         """
 
-        def invalid_words():
-            """
-            Checks that the placed words, as well as other words formed by it being adjacent to other tiles, are
-            valid.
-            :return: A list of all invalid words created
-            """
-            # TODO: Complete function.
-            pass
-
-        # Check the coordinates are valid
-        if not max(coords) < 15 and min(coords) > 0:
-            raise InvalidCoordinatesError()
-        if (dir == 'D' and coords[1] + len(word) > 14) or (dir == 'R' and coords[0] + len(word) > 14):
-            raise InvalidPlacementError(word)
-
-        # TODO: Check word actually fits in this spot, and tiles provided and tiles on board are enough to compelete it.
-
-        # Now that we know that the placement is valid, we'll check the
+        coord_x, coord_y = coords
+        if dir == 'D':
+            for i, c in enumerate(word):
+                self.board[coord_x][coord_y+i] = c
+        if dir == 'R':
+            for i, c in enumerate(word):
+                self.board[coord_x+i][coord_y] = c
 
 
-
-class Bag(object):
+class TileBag(object):
     """ The bag of tiles from which pieces are pulled. """
     def __init__(self):
         """
@@ -85,9 +72,8 @@ class Bag(object):
         with open('docs/tile_counts.json', 'r') as infile:
             self.tile_counts = json.load(infile)
 
-        self.bag = []
-        for letter, count in self.tile_counts.items():
-            self.bag += [letter for _ in range(count)]
+        # Use these counts to generate the correct numbers of tiles in the bag.
+        self.bag = [[letter for _ in range(count)] for letter, count in self.tile_counts.items()]
 
     def __str__(self):
         """
@@ -136,7 +122,45 @@ class Bag(object):
 
         return new_tiles
 
-if __name__ == '__main__':
-    board = Board()
-    bag = Bag()
-    print(bag)
+class GameMaster(object):
+    """
+    It is the role of the GameMaster to act as the intermediary between the players and the game pieces. It keeps
+    track of the score, checks for rule violations, and generally acts as an error-checking buffer.
+
+    It is also responsible for the creation of players, and cycling through them at appropriate intervals.
+    """
+
+    def __init__(self, human_count, ai_count):
+        """
+        :param human_count: The number of human players to be
+        :param ai_count:
+        """
+        # Generate the game pieces.
+        self.board = Board()
+        self.bag = TileBag()
+
+        with open("docs/tile_scores.json") as point_values:
+            self.tile_scores = point_values
+
+        with open("docs/dictionary.txt") as dictionary:
+            self.dictionary = set([word for word in dictionary])
+
+        players = []
+        for i in range(human_count):
+            players.append(HumanPlayer(id=i, init_tiles=self.bag.grab(7)))
+        for i in range(ai_count):
+            players.append(AIPlayer(id=human_count+i, init_tiles=self.bag.grab(7)))
+
+        # Start the game
+
+    def assert_legality(self, coord, dir, word, tiles):
+        # TODO: Assert move legality
+        pass
+
+    def play_game(self):
+        """
+        Cycle through the players in the list, prompting them for their individual moves until the game is over.
+        :return: None
+        """
+        # TODO: Play game!
+        pass
