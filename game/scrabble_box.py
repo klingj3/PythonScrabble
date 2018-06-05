@@ -145,13 +145,11 @@ class GameMaster(object):
         with open("docs/dictionary.txt") as dictionary:
             self.dictionary = set([word for word in dictionary])
 
-        players = []
+        self.players = []
         for i in range(human_count):
-            players.append(HumanPlayer(id=i, init_tiles=self.bag.grab(7)))
+            self.players.append(HumanPlayer(id=i, init_tiles=self.bag.grab(7)))
         for i in range(ai_count):
-            players.append(AIPlayer(id=human_count+i, init_tiles=self.bag.grab(7)))
-
-        # Start the game
+            self.players.append(AIPlayer(id=human_count+i, init_tiles=self.bag.grab(7)))
 
     def assert_legality(self, coord, dir, word, tiles):
         # TODO: Assert move legality
@@ -162,5 +160,17 @@ class GameMaster(object):
         Cycle through the players in the list, prompting them for their individual moves until the game is over.
         :return: None
         """
-        # TODO: Play game!
-        pass
+
+        # We keep track of the consecutive skips as this is one of the conditions which can lead to the game's end.
+        consecutive_skips = 0
+
+        player_count = len(self.players)
+
+        # The game ends when oen player has used all of their tiles, or if everyone skips for two turns because nothing
+        # can be placed. (This is very unlikely, but must be included as an edge case.
+        while consecutive_skips < 2*player_count or min([len(player.tiles()) for player in self.players]) == 0:
+            for player in self.players:
+                # On each player's turn we'll print the board, the scores, and the active player's tiles.
+                # TODO: Beautify Command-line appearance
+
+
