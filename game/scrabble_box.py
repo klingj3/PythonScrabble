@@ -30,7 +30,7 @@ class Board(object):
             'W  l   W   l  W',
         ]
         # The board on which the tiles will actually be placed.
-        self.board = [['_' for _ in range(15)] for _ in range(15)]
+        self.board = [[' ' for _ in range(15)] for _ in range(13)]
         with open('docs/tile_scores.json', 'r') as infile:
             self.tile_scores = json.load(infile)
 
@@ -39,8 +39,9 @@ class Board(object):
         :return: A board showing the currently played tiles.
         """
         string_rep = "   " + ' '.join([str(hex(x))[-1] for x in range(15)]) + "\n"
-        for i in range(15):
-                string_rep += str(hex(i))[-1] + '  ' + ' '.join([self.board[i][j] for j in range(15)]) + '\n'
+        for i in range(13):
+            string_rep += str(hex(i))[-1] + '  ' + ' '.join([self.board[i][j] if self.board[i][j] != ' ' else
+                                                             self.board_special_tiles[i][j] for j in range(15)]) + '\n'
         return string_rep
 
     def place_word(self, word, coords, dir):
@@ -73,7 +74,9 @@ class TileBag(object):
             self.tile_counts = json.load(infile)
 
         # Use these counts to generate the correct numbers of tiles in the bag.
-        self.bag = [[letter for _ in range(count)] for letter, count in self.tile_counts.items()]
+        self.bag = []
+        for letter, count in self.tile_counts.items():
+            self.bag += [letter for _ in range(count)]
 
     def __str__(self):
         """
@@ -130,10 +133,10 @@ class GameMaster(object):
     It is also responsible for the creation of players, and cycling through them at appropriate intervals.
     """
 
-    def __init__(self, human_count, ai_count):
+    def __init__(self, human_count=0, ai_count=0):
         """
         :param human_count: The number of human players to be
-        :param ai_count:
+        :param ai_count: The number of AI players.
         """
         # Generate the game pieces.
         self.board = Board()
@@ -149,7 +152,7 @@ class GameMaster(object):
         for i in range(human_count):
             self.players.append(HumanPlayer(id=i, init_tiles=self.bag.grab(7)))
         for i in range(ai_count):
-            self.players.append(AIPlayer(id=human_count+i, init_tiles=self.bag.grab(7)))
+            self.players.append(AIPlayer(id=human_count+i, init_tiles=self.bag.grab(7), name="AI {}".format(i+1)))
 
     def assert_legality(self, coord, dir, word, tiles):
         # TODO: Assert move legality
@@ -172,5 +175,18 @@ class GameMaster(object):
             for player in self.players:
                 # On each player's turn we'll print the board, the scores, and the active player's tiles.
                 # TODO: Beautify Command-line appearance
+                print(self.board)
+                print('TURN: {}'.format(player.name))
+                exit()
 
+if __name__ == '__main__':
+    game = GameMaster(ai_count=1, human_count=0)
+
+    print(game.players[0].test_word('APPLE'))
+    print(game.players[0].test_word('BBBBBBBBB'))
+    print(game.players[0].test_word('DUCK'))
+    print(game.players[0].test_word('BANANA'))
+
+    print(game.players[0].tiles)
+    print(game.players[0].find_words())
 
