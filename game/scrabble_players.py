@@ -1,8 +1,4 @@
-import json
-import os
-import sys
-import random
-
+from collections import namedtuple
 
 class Player(object):
     def __init__(self, id, init_tiles, name=None):
@@ -152,6 +148,42 @@ class AIPlayer(Player):
                 if i == len(word) - 1:
                     active_branch['VALID'] = True
         return dictionary_tree, set(dictionary_lines)
+
+    def prompt_move(self, board_state):
+
+        Move = namedtuple('Move', 'coords dir length')
+
+        def get_valid_locations(max_num_tiles=7):
+            """
+            :param max_num_tiles: The longest number of tiles to be used in this position.
+            :return: A list of "Move" named tuples.
+            """
+
+            def is_island(y, x):
+                """
+                :param y: Integer Y coordinate
+                :param x: Integer X coordinate
+                :return:
+                """
+                if board_state[y][x] == '*':
+                    return True
+
+                min_x, max_x = max(x-1, 0), min(x+1, len(board_state[0]))
+                min_y, max_y = max(y-1, 0), min(y+1, len(board_state))
+                for y in range(min_y, max_y+1):
+                    for x in range(min_x, max_x+1):
+                        if board_state[y][x] != ' ' and board_state[y][x] != '*':
+                            return True
+                return False
+
+            valid_moves = []
+
+            # Check moves for the down direction
+
+            # Check moves for the right direction
+
+
+
 
     def test_word(self, word):
         """

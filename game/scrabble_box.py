@@ -50,17 +50,16 @@ class Board(object):
         :param word: The word to be placed, including both the tiles of the player and the tiles on the board.
         :param coords: The coords at which the first letter of the word will be placed
         :param dir: the direction, either down or right, from this first word in which the remainder will move.
-        :param tiles: The rack of the player's tiles, checking that the word uses the correct tiles
         :return: None
         """
 
         coord_x, coord_y = coords
         if dir == 'D':
             for i, c in enumerate(word):
-                self.board[coord_x][coord_y+i] = c
+                self.board[coord_y+i][coord_x] = c
         if dir == 'R':
             for i, c in enumerate(word):
-                self.board[coord_x+i][coord_y] = c
+                self.board[coord_y][coord_x+i] = c
 
 
 class TileBag(object):
