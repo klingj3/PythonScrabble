@@ -72,7 +72,7 @@ class AIPlayer(Player):
         """
         self.dictionary_root, self.dictionary_set = self.generate_dictionary_tree()
 
-    def find_words(self, tiles=None, starting_branch=None, req_tiles=[], pos=0, max_length=15):
+    def find_words(self, tiles=None, starting_branch=None, req_tiles=[], pos=0, min_length=1, max_length=15):
         """
         :param tiles: A list of single-characters representing the player's tiles.
         :param starting_branch: The starting branch in the dictionary tree which we'll be exploring
@@ -112,7 +112,10 @@ class AIPlayer(Player):
                 local_list.remove(item)
             return local_list
 
-        valid_words = [starting_branch['WORD']] if starting_branch['VALID'] else []
+        if starting_branch['VALID'] and len(starting_branch['WORD']) >= min_length:
+            valid_words = [starting_branch['WORD']]
+        else:
+            valid_words = []
 
         # If our current position features a mandated tile, then we check to see if that's a valid entry at this point
         # in the tree
@@ -124,6 +127,93 @@ class AIPlayer(Player):
                 if tile in starting_branch:
                     valid_words += self.find_words(without(tiles, tile), starting_branch[tile], pos=pos+1)
         return valid_words
+
+    def get_valid_locations(self, board_state):
+        """
+        :return: A list of "MoveParam" named tuples, containing the coordinates, orientation, min word length
+        and max word length for perspective moves.
+        """
+
+        def move_params_from_coords(coords, dir, num):
+            """
+            Asserts that the number of tiles can be placed in the direction dir with the coordinates coords.
+            Returns the (zero indexed) number of tiles until this becomes valid, and the ultimate length of the move. For example,
+            if we're trying to place five tiles across line '_ _ A _ _ _ _ _ _ _ _ _ _ _ _ ' from the first
+            position, the result would be (2, 6) as it becomes valid at tile 2 and the maximum number of letters
+            in the result will be six.
+            :param coords: y and x integer coordinates in tuple
+            :param dir: string 'D' or 'R' for down or right.
+            :param num: The number of tiles being placed.
+            :return: tuple (int, int)
+            """
+
+            def is_island(y, x):
+                """
+                :param y: Integer Y coordinate
+                :param x: Integer X coordinate
+                :return: True if the coordinates has no existing tile on any side.
+                """
+                # All first moves will be an island, but we'll of return false so the game can begin.
+                if (y, x) == (7, 7):
+                    return False
+
+                min_x, max_x = max(x - 1, 0), min(x + 1, len(board_state[0]))
+                min_y, max_y = max(y - 1, 0), min(y + 1, len(board_state))
+                for y in range(min_y, max_y + 1):
+                    for x in range(min_x, max_x + 1):
+                        if board_state[y][x] != ' ':
+                            return False
+                return True
+
+            # TODO: remove assertions used in testing
+            assert (dir == 'D' or dir == 'R')
+            orig_y, orig_x = coords
+            y, x = coords
+            tiles_rem = num
+            tiles_to_validity = -1
+            if dir == 'D':
+                while tiles_rem:
+                    if y >= 15:
+                        return -1, -1
+                    if tiles_to_validity == -1:
+                        if not is_island(y, x):
+                            valid = True
+                            tiles_to_validity = y - orig_y
+                    if board_state[y][x] == ' ':
+                        tiles_rem -= 1, -1
+                    y += 1
+                return tiles_to_validity, (y - orig_y)
+            else:
+                while tiles_rem:
+                    if x >= 15:
+                        return -1
+                    if tiles_to_validity == -1:
+                        if not is_island(y, x):
+                            tiles_to_validity = x - orig_x
+                    if board_state[y][x] == ' ':
+                        tiles_rem -= 1
+                    x += 1
+                return tiles_to_validity, (x - orig_x)
+
+        valid_move_params = []
+        MoveParam = namedtuple('MoveParam', 'coords dir min max')
+        num = len(self.tiles)
+
+        # Check moves for the down direction
+        for y in range(15 - num):
+            for x in range(15):
+                min_len, max_len = move_params_from_coords((y, x), 'D', num)
+                if min_len != -1:
+                    valid_move_params.append(MoveParam((y, x), 'D', min_len, max_len))
+
+        # Check moves for the right direction.
+        for y in range(15):
+            for x in range(15 - num):
+                min_len, max_len = move_params_from_coords((y, x), 'R', num)
+                if min_len != -1:
+                    valid_move_params.append(MoveParam((y, x), 'R', min_len, max_len))
+
+        return valid_move_params
 
     def generate_dictionary_tree(self):
         """
@@ -150,38 +240,10 @@ class AIPlayer(Player):
         return dictionary_tree, set(dictionary_lines)
 
     def prompt_move(self, board_state):
-
-        Move = namedtuple('Move', 'coords dir length')
-
-        def get_valid_locations(max_num_tiles=7):
-            """
-            :param max_num_tiles: The longest number of tiles to be used in this position.
-            :return: A list of "Move" named tuples.
-            """
-
-            def is_island(y, x):
-                """
-                :param y: Integer Y coordinate
-                :param x: Integer X coordinate
-                :return:
-                """
-                if board_state[y][x] == '*':
-                    return True
-
-                min_x, max_x = max(x-1, 0), min(x+1, len(board_state[0]))
-                min_y, max_y = max(y-1, 0), min(y+1, len(board_state))
-                for y in range(min_y, max_y+1):
-                    for x in range(min_x, max_x+1):
-                        if board_state[y][x] != ' ' and board_state[y][x] != '*':
-                            return True
-                return False
-
-            valid_moves = []
-
-            # Check moves for the down direction
-
-            # Check moves for the right direction
-
+        """
+        :param board_state: A 15 by 15 grid reflecting the current placement of tiles on the board.
+        :return:
+        """
 
 
 

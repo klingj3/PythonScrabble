@@ -17,6 +17,7 @@ class Board(object):
         self.board_special_tiles = [
             'W  l   W   l  W',
             ' w   L   L   w ',
+            '  w   l l   w  ',
             'l  w   l   w  l',
             '    w     w    ',
             ' L   L   L   L ',
@@ -26,11 +27,12 @@ class Board(object):
             ' L   L   L   L ',
             '    w     w    ',
             'l  w   l   w  l',
+            '  w   l l   w  ',
             ' w   L   L   w ',
             'W  l   W   l  W',
         ]
         # The board on which the tiles will actually be placed.
-        self.board = [[' ' for _ in range(15)] for _ in range(13)]
+        self.board = [[' ' for _ in range(15)] for _ in range(15)]
         with open('docs/tile_scores.json', 'r') as infile:
             self.tile_scores = json.load(infile)
 
@@ -39,7 +41,7 @@ class Board(object):
         :return: A board showing the currently played tiles.
         """
         string_rep = "   " + ' '.join([str(hex(x))[-1] for x in range(15)]) + "\n"
-        for i in range(13):
+        for i in range(15):
             string_rep += str(hex(i))[-1] + '  ' + ' '.join([self.board[i][j] if self.board[i][j] != ' ' else
                                                              self.board_special_tiles[i][j] for j in range(15)]) + '\n'
         return string_rep
