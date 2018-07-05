@@ -183,11 +183,3 @@ class GameMaster(object):
 if __name__ == '__main__':
     game = GameMaster(ai_count=1, human_count=0)
 
-    print(game.players[0].test_word('APPLE'))
-    print(game.players[0].test_word('BBBBBBBBB'))
-    print(game.players[0].test_word('DUCK'))
-    print(game.players[0].test_word('BANANA'))
-
-    print(game.players[0].tiles)
-    print(game.players[0].find_words())
-

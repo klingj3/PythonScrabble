@@ -22,6 +22,3 @@ class TestAIPlayer(TestCase):
         found_words = set(player.find_words(req_tiles=[('M',0), ('Z',1)]))
         self.assertTrue(found_words == set([]))
 
-    def test_test_word(self):
-        player = AIPlayer(id=1, init_tiles=['A', 'P', 'P', 'L', 'E', 'Q', 'Z'])
-        self.assertTrue(player.test_word('AM'))

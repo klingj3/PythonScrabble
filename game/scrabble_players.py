@@ -70,7 +70,62 @@ class AIPlayer(Player):
         there exists a word where the first letter is M and the second letter is that letter in question. I'm still
         examining faster solutions, but at the moment it has been quite successful as a mode for discovering anagrams.
         """
-        self.dictionary_root, self.dictionary_set = self.generate_dictionary_tree()
+        self.dictionary_root, self.scrabble_dictionary = self.generate_dictionary_tree()
+
+    def ancillary_valid(self, move, board_state):
+        """
+        Check that the ancillary words formed are also valid. For example starting with the small board
+        _ _ _
+        _ D _
+        _ O _
+        _ G _
+
+        If we play the word "Ram" at 2, 0 Down, we'll create the board
+        _ _ R
+        _ D A
+        _ O M
+        _ G _
+        And must then check that DA and OM are valid.
+        :param move: namedtuple containing ('move', 'coords', 'dir', word')
+        :param board_state:
+        :return: True if all ancillary words exist in the dictionary.
+        """
+
+        if move.word not in self.scrabble_dictionary:
+            return False
+
+        def neighbored_x(y, x):
+            return (x > 0 and board_state[y][x-1] != ' ') or (x < 14 and board_state[y][x+1] != ' ')
+
+        def neighbored_y(y, x):
+            return (y > 0 and board_state[y-1][x] != ' ') or (t < 14 and board_state[y+1][x] != ' ')
+
+        start_y, start_x = move.coords
+        if move.dir == 'D':
+            for y in range(start_y, len(move.word)):
+                if neighbored_x(y, start_x):
+                    word_start, word_end = start_x, start_x
+                    while word_start > 0 and board_state[y][word_start - 1] != ' ':
+                        word_start -= 1
+                    while word_end < 14 and board_state[y][word_start + 1] != ' ':
+                        word_start += 1
+                    if board_state[y][word_start:word_end + 1] not in self.scrabble_dictionary:
+                        return False
+            return True
+        else:
+            # TODO: REMOVE USELESS SAFETY CHECK
+            assert(move.dir == 'R')
+            for x in range(start_x, len(move.word)):
+                if neighbored_y(start_y, x):
+                    word_start, word_end = start_y, start_y
+                    while word_start > 0 and board_state[word_start - 1][x] != ' ':
+                        word_start -= 1
+                    while word_end < 14 and board_state[word_start + 1][x] != ' ':
+                        word_start += 1
+                    anc_word = ''.join([row[x] for row in board_state[word_start:word_end+1]])
+                    if anc_word not in self.scrabble_dictionary:
+                        return False
+            return True
 
     def find_words(self, tiles=None, starting_branch=None, req_tiles=[], pos=0, min_length=1, max_length=15):
         """
@@ -88,7 +143,6 @@ class AIPlayer(Player):
         if pos == max_length:
             return []
 
-        # One of the quirks of Python, default arguments can't be local variables
         if tiles is None:
             tiles = self.tiles.copy()
         if starting_branch is None:
@@ -123,9 +177,16 @@ class AIPlayer(Player):
             if req_tiles[0][0] in starting_branch:
                 valid_words += self.find_words(tiles, starting_branch[req_tiles[0][0]], req_tiles[1:], pos=pos+1)
         else:
-            for tile in tiles:
-                if tile in starting_branch:
-                    valid_words += self.find_words(without(tiles, tile), starting_branch[tile], pos=pos+1)
+            # Casting tile to a set ensures we don't doubly traverse a branch in the case of repeated letters.
+            for tile in set(tiles):
+                if tile != '?':
+                    if tile in starting_branch:
+                        valid_words += self.find_words(without(tiles, tile), starting_branch[tile], pos=pos+1)
+                else:
+                    for key, value in starting_branch.items():
+                        if key != 'VALID' and key != 'WORD':
+                            valid_words += self.find_words(without(tiles, '?'), starting_branch[tile], pos=pos+1)
+
         return valid_words
 
     def get_valid_locations(self, board_state):
@@ -134,21 +195,25 @@ class AIPlayer(Player):
         and max word length for perspective moves.
         """
 
+        MoveParam = namedtuple('MoveParam', 'coords dir min max fixed')
+
         def move_params_from_coords(coords, dir, num):
             """
             Asserts that the number of tiles can be placed in the direction dir with the coordinates coords.
             Returns the (zero indexed) number of tiles until this becomes valid, and the ultimate length of the move. For example,
             if we're trying to place five tiles across line '_ _ A _ _ _ _ _ _ _ _ _ _ _ _ ' from the first
-            position, the result would be (2, 6) as it becomes valid at tile 2 and the maximum number of letters
+            position, the result would be (2, 6, [(2, A)] as it becomes valid at tile 2 and the maximum number of letters
             in the result will be six.
             :param coords: y and x integer coordinates in tuple
             :param dir: string 'D' or 'R' for down or right.
             :param num: The number of tiles being placed.
-            :return: tuple (int, int)
+            :return: tuple (int, int, list)
             """
 
             def is_island(y, x):
                 """
+                Checks to see if the given coordinate is an island in scrabble terms, meaning that there is no tile
+                directly above, below, to the left, or to the right of it, though diagonals are of course still valid.
                 :param y: Integer Y coordinate
                 :param x: Integer X coordinate
                 :return: True if the coordinates has no existing tile on any side.
@@ -159,59 +224,64 @@ class AIPlayer(Player):
 
                 min_x, max_x = max(x - 1, 0), min(x + 1, len(board_state[0]))
                 min_y, max_y = max(y - 1, 0), min(y + 1, len(board_state))
-                for y in range(min_y, max_y + 1):
-                    for x in range(min_x, max_x + 1):
-                        if board_state[y][x] != ' ':
-                            return False
+                for neighbor_y in range(min_y, max_y + 1):
+                    if board_state[neighbor_y][x] != ' ':
+                        return False
+                for neighbor_x in range(min_x, max_x+1):
+                    if board_state[y][neighbor_x] != ' ':
+                        return False
                 return True
 
             # TODO: remove assertions used in testing
             assert (dir == 'D' or dir == 'R')
-            orig_y, orig_x = coords
+            start_y, start_x = coords
             y, x = coords
+            fixed_tiles = []
             tiles_rem = num
             tiles_to_validity = -1
             if dir == 'D':
                 while tiles_rem:
                     if y >= 15:
-                        return -1, -1
+                        return tiles_to_validity, y-start_y, fixed_tiles
                     if tiles_to_validity == -1:
                         if not is_island(y, x):
-                            valid = True
-                            tiles_to_validity = y - orig_y
+                            tiles_to_validity = y - start_y
                     if board_state[y][x] == ' ':
-                        tiles_rem -= 1, -1
+                        tiles_rem -= 1
+                    else:
+                        fixed_tiles.append((y-start_y, board_state[y][x]))
                     y += 1
-                return tiles_to_validity, (y - orig_y)
+                return tiles_to_validity, (y - start_y), fixed_tiles
             else:
                 while tiles_rem:
                     if x >= 15:
-                        return -1
+                        return tiles_to_validity, x-start_x, fixed_tiles
                     if tiles_to_validity == -1:
                         if not is_island(y, x):
-                            tiles_to_validity = x - orig_x
+                            tiles_to_validity = x - start_x
                     if board_state[y][x] == ' ':
                         tiles_rem -= 1
+                    else:
+                        fixed_tiles.append((x-start_x, board_state[y][x]))
                     x += 1
-                return tiles_to_validity, (x - orig_x)
+                return tiles_to_validity, (x - start_x), fixed_tiles
 
         valid_move_params = []
-        MoveParam = namedtuple('MoveParam', 'coords dir min max')
         num = len(self.tiles)
 
         # Check moves for the down direction
         for y in range(15 - num):
             for x in range(15):
-                min_len, max_len = move_params_from_coords((y, x), 'D', num)
+                min_len, max_len, fixed_tiles = move_params_from_coords((y, x), 'D', num)
                 if min_len != -1:
-                    valid_move_params.append(MoveParam((y, x), 'D', min_len, max_len))
+                    valid_move_params.append(MoveParam((y, x), 'D', min_len, max_len, fixed_tiles))
 
         # Check moves for the right direction.
         for y in range(15):
             for x in range(15 - num):
-                min_len, max_len = move_params_from_coords((y, x), 'R', num)
+                min_len, max_len, fixed_tiles = move_params_from_coords((y, x), 'R', num)
                 if min_len != -1:
-                    valid_move_params.append(MoveParam((y, x), 'R', min_len, max_len))
+                    valid_move_params.append(MoveParam((y, x), 'R', min_len, max_len, fixed_tiles))
 
         return valid_move_params
 
@@ -220,9 +290,10 @@ class AIPlayer(Player):
         :return: The tree-like dictionary showing the relationships between words, used in the faster traversal and
         generating of anagram solutions than just changing all combinations against a set of dictionary words.
         """
-        # Normally we'll generate this tree by loading the JSON, but this method is good to include so that this
-        # tree can be remade for differing dictionaries as well as incase some error is found in the current
-        # dictionar-tree down the line.
+
+        # While on paper it'd make more sense to write and load this file from a saved dictionary tree, in actuality
+        # loading it only takes a fraction of a second less time than creating it, so since this method is only called
+        # on game initialization it's better to generate it fresh and have one fewer file to force the user to download.
 
         # We build a tree from this dictionary of words.
         dictionary_tree = {'VALID': False, 'WORD': ''}
@@ -245,12 +316,19 @@ class AIPlayer(Player):
         :return:
         """
 
-
-
-    def test_word(self, word):
         """
-        Tests if a word exists in the scrabble dictionary or not
-        :param word: A string of capital letters to be tested
-        :return: True if the word is in the dictionary, false otherwise
+        First, we look at all the positions on the board and determine which coordinates can be the starting position 
+        for a word, the minimum length of a word which adheres to the placement rules of scrabble, and the maximum 
+        length of a word formed this point.
         """
-        return word in self.dictionary_set
+        valid_locations = self.get_valid_locations(board_state)
+
+        """
+        Knowing where we can place words and how long the words can be moved, as well as what tiles this move would
+        be forced to incorporate, we can find what valid words we can play.
+        """
+        valid_moves = []
+        Move = namedtuple('move', 'coords', 'dir', 'word')
+        for vl in valid_locations:
+            valid_words = self.find_words(req_tiles=vl.fixed, min_length=vl.min, max_length=vl.max)
+            valid_moves += [Move(vl.coords, vl.dir, word) for word in valid_words]
