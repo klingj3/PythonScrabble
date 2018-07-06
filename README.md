@@ -4,9 +4,17 @@ Yes, this another one of those projects that starts with Py, but what can I say,
 ## Overview
 I love scrabble, but I'm continuously disappointed by the quality of online scrabble games, both directly and in the
 form of their opponents. A lot of them are slow, or require you to drag each tile on the board individually, or tell
-you if a word you're trying to play is in the dictionary. This will be a command-line version which can be played much
-more quickly, and allow players to play invalid words with all of the risk that contains. More than just providing 
-an alternate vector through which to play scrabble, this will be an excercise in a unique brand of game AI.
+you if a word you're trying to play is in the dictionary which defeats a key part of the game. 
+This will be a command-line version (at least initially) which can be played much more quickly, and allow players to 
+play invalid words  with all of the risk that contains. More than just providing 
+an alternate vector through which to play scrabble, this will be an exercise in a unique brand of game AI, as well as
+an algorithmic challenge as each possible move in scrabble has, including invalid options, a minimum of over a million
+possible moves.
+
+### Status 07/06
+The level I (detailed below) agent is almost finished, as it can find all possible words generated on the board 
+from its tiles and safely check the validity of the various options. Once it gains the additional capacity to score
+these move options, it will be largely complete with the possible exception of a few end-game edge cases.
 
 ## AI Development Plans
 The crux of this little project, and AI opponent to play against in games of scrabble. Though it will start out
