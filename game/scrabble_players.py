@@ -1,5 +1,10 @@
 from collections import namedtuple
 
+
+# TODO: REMOVE DEBUG STATEMENTS
+debug = True
+
+
 class Player(object):
     def __init__(self, id, init_tiles, name=None):
         while name is None:
@@ -33,6 +38,7 @@ class Player(object):
         """
         pass
 
+
 class HumanPlayer(Player):
     """
     This is a class for a human player to interact with the scrabble board directly, interacting with the
@@ -48,6 +54,7 @@ class HumanPlayer(Player):
                 move and string integrity is handled by the game-master.
         """
         return input("Action: ")
+
 
 class AIPlayer(Player):
     """
@@ -98,36 +105,46 @@ class AIPlayer(Player):
             return (x > 0 and board_state[y][x-1] != ' ') or (x < 14 and board_state[y][x+1] != ' ')
 
         def neighbored_y(y, x):
-            return (y > 0 and board_state[y-1][x] != ' ') or (t < 14 and board_state[y+1][x] != ' ')
+            return (y > 0 and board_state[y-1][x] != ' ') or (y < 14 and board_state[y+1][x] != ' ')
 
         start_y, start_x = move.coords
         if move.dir == 'D':
-            for y in range(start_y, len(move.word)):
+            for i, y in enumerate(range(start_y, (len(move.word)+start_y))):
                 if neighbored_x(y, start_x):
                     word_start, word_end = start_x, start_x
                     while word_start > 0 and board_state[y][word_start - 1] != ' ':
                         word_start -= 1
-                    while word_end < 14 and board_state[y][word_start + 1] != ' ':
-                        word_start += 1
-                    if board_state[y][word_start:word_end + 1] not in self.scrabble_dictionary:
+                    while word_end < 14 and board_state[y][word_end + 1] != ' ':
+                        word_end += 1
+                    anc_word = board_state[y][word_start:start_x] + move.word[i] + board_state[y][start_x+1:word_end+1]
+
+                    # TODO: Remove debug statements
+                    if debug:
+                        print(anc_word + ' ' + str(anc_word in self.scrabble_dictionary))
+
+                    if anc_word not in self.scrabble_dictionary:
                         return False
             return True
         else:
-            # TODO: REMOVE USELESS SAFETY CHECK
             assert(move.dir == 'R')
-            for x in range(start_x, len(move.word)):
+            for i, x in enumerate(range(start_x, (len(move.word)+start_x))):
                 if neighbored_y(start_y, x):
                     word_start, word_end = start_y, start_y
                     while word_start > 0 and board_state[word_start - 1][x] != ' ':
                         word_start -= 1
-                    while word_end < 14 and board_state[word_start + 1][x] != ' ':
-                        word_start += 1
-                    anc_word = ''.join([row[x] for row in board_state[word_start:word_end+1]])
+                    while word_end < 14 and board_state[word_end + 1][x] != ' ':
+                        word_end += 1
+                    anc_word = ''.join([board_state[word_y][x] if word_y != start_y else move.word[i]
+                                        for word_y in range(word_start, word_end+1)])
+                    # TODO: Remove debug statements
+                    if debug:
+                        print(anc_word + ' ' + str(anc_word in self.scrabble_dictionary))
+
                     if anc_word not in self.scrabble_dictionary:
                         return False
             return True
 
-    def find_words(self, tiles=None, starting_branch=None, req_tiles=[], pos=0, min_length=1, max_length=15):
+    def find_words(self, tiles=None, starting_branch=None, req_tiles=[], pos=0, min_length=2, max_length=15):
         """
         :param tiles: A list of single-characters representing the player's tiles.
         :param starting_branch: The starting branch in the dictionary tree which we'll be exploring
@@ -328,7 +345,8 @@ class AIPlayer(Player):
         be forced to incorporate, we can find what valid words we can play.
         """
         valid_moves = []
-        Move = namedtuple('move', 'coords', 'dir', 'word')
+        Move = namedtuple('move', 'coords dir word')
         for vl in valid_locations:
             valid_words = self.find_words(req_tiles=vl.fixed, min_length=vl.min, max_length=vl.max)
             valid_moves += [Move(vl.coords, vl.dir, word) for word in valid_words]
+        valid_moves = [move for move in valid_moves if self.ancillary_valid(move)]

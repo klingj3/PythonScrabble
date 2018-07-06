@@ -32,7 +32,7 @@ class Board(object):
             'W  l   W   l  W',
         ]
         # The board on which the tiles will actually be placed.
-        self.board = [[' ' for _ in range(15)] for _ in range(15)]
+        self.board = [''.join([' ' for _ in range(15)]) for _ in range(15)]
         with open('docs/tile_scores.json', 'r') as infile:
             self.tile_scores = json.load(infile)
 
@@ -155,9 +155,6 @@ class GameMaster(object):
         for i in range(ai_count):
             self.players.append(AIPlayer(id=human_count+i, init_tiles=self.bag.grab(7), name="AI {}".format(i+1)))
 
-    def assert_legality(self, coord, dir, word, tiles):
-        # TODO: Assert move legality
-        pass
 
     def play_game(self):
         """
