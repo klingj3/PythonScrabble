@@ -3,13 +3,10 @@ This contains the elements of the scrabble box: the board, the tiles, the rule b
 """
 from collections import Counter
 from game.exceptions import InvalidCoordinatesError, InvalidPlacementError, InvalidWordError, OutOfBoardError
-from game.scrabble_players import AIPlayer, HumanPlayer
 
-import colorama
 import json
 import random
 import sys
-import string
 
 # TODO: Remove debugs once the final tests are completed.
 debug_mode = False
@@ -64,51 +61,6 @@ class Board(object):
         if dir == 'R':
             for i, c in enumerate(word):
                 self.board[coord_y][coord_x+i] = c
-
-
-class GameMaster(object):
-    """
-    It is the role of the GameMaster to act as the intermediary between the players and the game pieces. It keeps
-    track of the score, checks for rule violations, and generally acts as an error-checking buffer.
-
-    It is also responsible for the creation of players, and cycling through them at appropriate intervals.
-    """
-
-    def __init__(self, human_count=0, ai_count=0):
-        """
-        :param human_count: The number of human players to be
-        :param ai_count: The number of AI players.
-        """
-        # Generate the game pieces.
-        self.board = Board()
-        self.bag = TileBag()
-
-        self.players = []
-        for i in range(human_count):
-            self.players.append(HumanPlayer(id=i, init_tiles=self.bag.grab(7)))
-        for i in range(ai_count):
-            self.players.append(AIPlayer(id=human_count+i, init_tiles=self.bag.grab(7), name="AI {}".format(i+1)))
-
-    def play_game(self):
-        """
-        Cycle through the players in the list, prompting them for their individual moves until the game is over.
-        :return: None
-        """
-
-        # We keep track of the consecutive skips as this is one of the conditions which can lead to the game's end.
-        consecutive_skips = 0
-
-        player_count = len(self.players)
-
-        # The game ends when oen player has used all of their tiles, or if everyone skips for two turns because nothing
-        # can be placed. (This is very unlikely, but must be included as an edge case.
-        while consecutive_skips < 2*player_count or min([len(player.tiles()) for player in self.players]) == 0:
-            for player in self.players:
-                # On each player's turn we'll print the board, the scores, and the active player's tiles.
-                # TODO: Beautify Command-line appearance
-                print(self.board)
-                print('TURN: {}'.format(player.name))
-                exit()
 
 
 class Rulebook(object):
@@ -174,79 +126,6 @@ class Rulebook(object):
                 if i == len(word) - 1:
                     active_branch['VALID'] = True
         return dictionary_tree, set(dictionary_lines)
-
-    def score_word(self, y, x, word, dir, board_state, allow_illegal=False):
-        """
-        :param y: Starting y coordinate
-        :param x: starting x coordinate
-        :param word: The word being played, new tiles as well as (potentially) existing board tiles.
-        :param dir: 'R' or 'D' representing the direction in which the word is moving.
-        :param board_state: A list of 15 strings of 15 characters representing the current state of the board.
-        :param allow_illegal: If False, returns -1 i the word is not in the dictionary. Otherwise, scores
-        the word as if it was entirely valid.
-        :return: Integer score of the word
-        """
-        if dir == 'R':
-            # Process the word in the right direction
-            score = 0
-            word_mul = 1
-            for i, tile in enumerate(word):
-                # If the character exists on the board at this point, then the tile has already been played.
-                if board_state[y][x+i] != ' ':
-                    if board_state[y][x+i] != tile:
-                        # The character on the board at this point does not match the tile which should exist in the word.
-                        raise InvalidPlacementError(word)
-                    else:
-                        score += self.tile_scores[tile]
-                else:
-                    # The board is blank at this point, meaning that the special tile markers contribute to its score.
-                    if self.board_special_tiles[y][x+i] == ' ':
-                        score += self.tile_scores[tile]
-                    else:
-                        if self.board_special_tiles[y][x+i] == 'l':
-                            score += self.tile_scores[tile]*2
-                        elif self.board_special_tiles[y][x+i] == 'L':
-                            score += self.tile_scores[tile]*3
-                        else:
-                            # Otherwise, tile is a word multiplier.
-                            if self.board_special_tiles[y][x+i] == 'W':
-                                word_mul *= 3
-                            else:
-                                # TODO: Remove ancillary debug statement
-                                assert(self.board_special_tiles[y][x+i] in 'W*')
-                                word_mul *= 2
-        if dir == 'D':
-            # Process the word in the right direction
-            score = 0
-            word_mul = 1
-            for i, tile in enumerate(word):
-                # If the character exists on the board at this point, then the tile has already been played.
-                if board_state[y+i][x] != ' ':
-                    if board_state[y+i][x] != tile:
-                        # The tile does not match the tile which should exist in the word.
-                        raise InvalidPlacementError(word)
-                    else:
-                        score += self.tile_scores[tile]
-                else:
-                    # The board is blank at this point, meaning that the special tile markers contribute to its score.
-                    if self.board_special_tiles[y+i][x] == ' ':
-                        score += self.tile_scores[tile]
-                    else:
-                        if self.board_special_tiles[y+i][x] == 'l':
-                            score += self.tile_scores[tile]*2
-                        elif self.board_special_tiles[y+i][x] == 'L':
-                            score += self.tile_scores[tile]*3
-                        else:
-                            # Otherwise, tile is a word multiplier.
-                            if self.board_special_tiles[y+i][x] == 'W':
-                                word_mul *= 3
-                            else:
-                                # TODO: Remove ancillary debug statement
-                                assert(self.board_special_tiles[y+i][x] in 'W*')
-                                word_mul *= 2
-        # TODO: Remove ancillary debug if never reached in testing.
-        else:
-            raise ValueError('ERROR: Direction other than R and D provided.')
 
     def score_move(self, move, board_state, allow_illegal=False):
         """
@@ -322,6 +201,58 @@ class Rulebook(object):
                     else:
                         return 0
             return True
+
+    def score_word(self, y, x, word, dir, board_state, allow_illegal=False):
+        """
+        :param y: Starting y coordinate
+        :param x: starting x coordinate
+        :param word: The word being played, new tiles as well as (potentially) existing board tiles.
+        :param dir: 'R' or 'D' representing the direction in which the word is moving.
+        :param board_state: A list of 15 strings of 15 characters representing the current state of the board.
+        :param allow_illegal: If False, returns -1 i the word is not in the dictionary. Otherwise, scores
+        the word as if it was entirely valid.
+        :return: Integer score of the word
+        :rtype int
+        """
+
+        score = 0
+        word_mul = 0
+
+        assert(dir == 'R' or dir == 'D')
+
+        # Instead of having an if statement for R and D with largely repeated contents, we can just add the
+        # integer cast of the equality of the given direction to a particular direction.
+        is_d, is_r = int(dir == 'D'), int(dir == 'R')
+
+        for i, tile in enumerate(word):
+            # The current tile (or none) on the board at the current location.
+            board_curr_tile = board_state[y+i*is_d][x+i*is_r]
+            # Check to see if something has already been placed on the board.
+            if board_curr_tile != ' ':
+                if board_curr_tile != tile:
+                    # The character on the board at this point does not match the tile which should exist in the word.
+                    raise InvalidPlacementError(word)
+                else:
+                    score += self.tile_scores[tile]
+            else:
+                # Else, this is a fresh placed tile, in which case we look at the special value of this square
+                spec_tile = self.board_special_tiles[y+i*is_d][x+i*is_r]
+                if spec_tile == ' ':
+                    score += self.tile_scores[tile]
+                else:
+                    if spec_tile == 'l':
+                        score += self.tile_scores[tile]*2
+                    elif self.board_special_tiles[y][x+i] == 'L':
+                        score += self.tile_scores[tile]*3
+                    else:
+                        # Otherwise, tile is a word multiplier.
+                        if spec_tile == 'W':
+                            word_mul *= 3
+                        else:
+                            # TODO: Remove ancillary debug statement
+                            assert(spec_tile in 'w*')
+                            word_mul *= 2
+        return score
 
     def word_is_valid(self, word):
         def check_tree(branch, pos=0):
@@ -405,4 +336,3 @@ class TileBag(object):
         self.bag += discarded_tiles
 
         return new_tiles
-

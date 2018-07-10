@@ -1,5 +1,5 @@
 from collections import namedtuple
-from scrabble_box import RuleBook
+from game.scrabble_box import Rulebook
 
 import sys
 
@@ -76,12 +76,12 @@ class AIPlayer(Player):
     """
     AI Competitor
     """
-    def __init__(self, id, init_tiles, rulebook, name=None):
+    def __init__(self, id, init_tiles, name=None):
         # Call the default constructor to set name and tiles
         Player.__init__(self, id, init_tiles, name="AI {}".format(id))
 
         # The rulebook for scoring moves and other similar functions
-        self.rulebook = rulebook
+        self.rulebook = Rulebook()
 
         # Build our scrabble dictionary, and the tree for quickly finding words in this dictionary
         """
@@ -166,7 +166,7 @@ class AIPlayer(Player):
 
         MoveParam = namedtuple('MoveParam', 'coords dir min max fixed')
 
-        def move_params_from_coords(coords, dir, num):
+        def move_params_from_coords(coords, direction, num):
             """
             Asserts that the number of tiles can be placed in the direction dir with the coordinates coords.
             Returns the (zero indexed) number of tiles until this becomes valid, and the ultimate length of the move. For example,
@@ -174,7 +174,7 @@ class AIPlayer(Player):
             position, the result would be (2, 6, [(2, A)] as it becomes valid at tile 2 and the maximum number of letters
             in the result will be six.
             :param coords: y and x integer coordinates in tuple
-            :param dir: string 'D' or 'R' for down or right.
+            :param direction: string direction 'D' or 'R' for down or right.
             :param num: The number of tiles being placed.
             :return: tuple (int, int, list)
             """
@@ -202,13 +202,13 @@ class AIPlayer(Player):
                 return True
 
             # TODO: remove assertions used in testing
-            assert (dir == 'D' or dir == 'R')
+            assert (direction == 'D' or direction == 'R')
             start_y, start_x = coords
             y, x = coords
             fixed_tiles = []
             tiles_rem = num
             tiles_to_validity = -1
-            if dir == 'D':
+            if direction == 'D':
                 while tiles_rem:
                     if y >= 15:
                         return tiles_to_validity, y-start_y, fixed_tiles

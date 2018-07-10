@@ -11,6 +11,8 @@ rulebook = Rulebook()
 
 class TestRulebook(TestCase):
     def test_score_moves(self):
+        # Test that moves are recognized as being valid.
+
         blank_board = [''.join([' ' for _ in range(15)]) for _ in range(15)]
         Move = namedtuple('move', 'coords dir word')
         test_board = blank_board.copy()
@@ -22,11 +24,14 @@ class TestRulebook(TestCase):
 
         # Test Horizontal word placement
         test_move = Move((2, 6), 'R', 'ORANGE')
-        self.assertTrue(rulebook.ancillary_valid(test_move, test_board) > 0)
+        self.assertTrue(rulebook.score_move(test_move, test_board) > 0)
 
         # Test complex multiple word placement
         test_move = Move((2, 1), 'R', 'CHROMO')
-        self.assertTrue(rulebook.ancillary_valid(test_move, test_board) > 0)
+        self.assertTrue(rulebook.score_move(test_move, test_board) > 0)
 
+        #  Check invalid placement
+        test_move = Move((2, 1), 'R', 'CRUNCH')
+        self.assertFalse(rulebook.score_move(test_move, test_board) < 0)
 
 

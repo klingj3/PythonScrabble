@@ -1,4 +1,3 @@
-from collections import namedtuple
 from game.scrabble_players import AIPlayer
 from unittest import TestCase
 
