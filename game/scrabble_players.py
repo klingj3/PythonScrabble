@@ -1,9 +1,10 @@
 from collections import namedtuple
+from scrabble_box import RuleBook
 
+import sys
 
 # TODO: REMOVE DEBUG STATEMENTS
-debug = True
-
+debug_mode = True
 
 class Player(object):
     def __init__(self, id, init_tiles, name=None):
@@ -31,12 +32,27 @@ class Player(object):
     def get_score(self):
         return self.score_hist[-1]
 
+    def recieve_tiles(self, new_tiles):
+        """
+        Used for the game master to pass new tiles to a player after said player has made a move
+        :param new_tiles: A list of single-character strings representing the tiles
+        :return: None
+        """
+        self.tiles += new_tiles
+        if debug_mode:
+            # Check that too many tiles haven't been given. As late-game enables a player to have fewer than seven
+            # tiles, we must allow for that scenario in this test despite its rarity.
+            assert(len(self.tiles) <= 7)
+
     def prompt_move(self, board_state):
         """
         :param board_state: The current board
         :return: A string representing the player's desired move, or a reordering of the tiles.
         """
         pass
+
+    def set_tiles(self, tiles):
+        self.tiles = tiles
 
 
 class HumanPlayer(Player):
@@ -60,89 +76,21 @@ class AIPlayer(Player):
     """
     AI Competitor
     """
-    def __init__(self, id, init_tiles, name=None):
+    def __init__(self, id, init_tiles, rulebook, name=None):
+        # Call the default constructor to set name and tiles
         Player.__init__(self, id, init_tiles, name="AI {}".format(id))
 
+        # The rulebook for scoring moves and other similar functions
+        self.rulebook = rulebook
+
+        # Build our scrabble dictionary, and the tree for quickly finding words in this dictionary
         """
-        Rather than having a huge list to traverse through, or a set to check against, the dictionary of this agent
-        is stored through a series of nested dictionaries, which work like a tree with easier indexing. Each branch of
-        this tree contains at least two values in its initial dictionary, WORD which is the word up to that point in
-        the tree (a little expensive on memory, but the whole dictionary isn't so large by modern standards), and VALID
-        which is if the current word is valid or not. For example, the word 'MAZE' would be found by traversing through
-        the tree as follows:
-        
-        '' -> M (WORD=M,VALID=FALSE) -> A (WORD=MA,VALID=TRUE) -> Z (WORD=MAZ,VALID=FALSE) -> E (WORD=MAZE,VALID=TRUE)
-        
-        Of course, this is a simplified view, as that first M doesn't point only to A, but to every letter for which
-        there exists a word where the first letter is M and the second letter is that letter in question. I'm still
-        examining faster solutions, but at the moment it has been quite successful as a mode for discovering anagrams.
+        While in the current incarnation of this project, it is a little redundant to have a scrabble dictionary exist
+        within each AI as well as within the rulebook, in future incarnations the dictionary will be dependent on 
+        difficulty options, so this redundancy is for now included in order to facilitate this advancement down 
+        the line.
         """
-        self.dictionary_root, self.scrabble_dictionary = self.generate_dictionary_tree()
-
-    def ancillary_valid(self, move, board_state):
-        """
-        Check that the ancillary words formed are also valid. For example starting with the small board
-        _ _ _
-        _ D _
-        _ O _
-        _ G _
-
-        If we play the word "Ram" at 2, 0 Down, we'll create the board
-        _ _ R
-        _ D A
-        _ O M
-        _ G _
-        And must then check that DA and OM are valid.
-        :param move: namedtuple containing ('move', 'coords', 'dir', word')
-        :param board_state:
-        :return: True if all ancillary words exist in the dictionary.
-        """
-
-        if move.word not in self.scrabble_dictionary:
-            return False
-
-        def neighbored_x(y, x):
-            return (x > 0 and board_state[y][x-1] != ' ') or (x < 14 and board_state[y][x+1] != ' ')
-
-        def neighbored_y(y, x):
-            return (y > 0 and board_state[y-1][x] != ' ') or (y < 14 and board_state[y+1][x] != ' ')
-
-        start_y, start_x = move.coords
-        if move.dir == 'D':
-            for i, y in enumerate(range(start_y, (len(move.word)+start_y))):
-                if neighbored_x(y, start_x):
-                    word_start, word_end = start_x, start_x
-                    while word_start > 0 and board_state[y][word_start - 1] != ' ':
-                        word_start -= 1
-                    while word_end < 14 and board_state[y][word_end + 1] != ' ':
-                        word_end += 1
-                    anc_word = board_state[y][word_start:start_x] + move.word[i] + board_state[y][start_x+1:word_end+1]
-
-                    # TODO: Remove debug statements
-                    if debug:
-                        print(anc_word + ' ' + str(anc_word in self.scrabble_dictionary))
-
-                    if anc_word not in self.scrabble_dictionary:
-                        return False
-            return True
-        else:
-            assert(move.dir == 'R')
-            for i, x in enumerate(range(start_x, (len(move.word)+start_x))):
-                if neighbored_y(start_y, x):
-                    word_start, word_end = start_y, start_y
-                    while word_start > 0 and board_state[word_start - 1][x] != ' ':
-                        word_start -= 1
-                    while word_end < 14 and board_state[word_end + 1][x] != ' ':
-                        word_end += 1
-                    anc_word = ''.join([board_state[word_y][x] if word_y != start_y else move.word[i]
-                                        for word_y in range(word_start, word_end+1)])
-                    # TODO: Remove debug statements
-                    if debug:
-                        print(anc_word + ' ' + str(anc_word in self.scrabble_dictionary))
-
-                    if anc_word not in self.scrabble_dictionary:
-                        return False
-            return True
+        self.dictionary_root, self.scrabble_dictionary = self.rulebook.generate_dictionary_tree()
 
     def find_words(self, tiles=None, starting_branch=None, req_tiles=[], pos=0, min_length=2, max_length=15):
         """
@@ -200,10 +148,14 @@ class AIPlayer(Player):
                     if tile in starting_branch:
                         valid_words += self.find_words(without(tiles, tile), starting_branch[tile], pos=pos+1)
                 else:
+                    # In the case of blank tiles, we traverse every branch
+                    words_with_blanks = []
                     for key, value in starting_branch.items():
                         if key != 'VALID' and key != 'WORD':
-                            valid_words += self.find_words(without(tiles, '?'), starting_branch[tile], pos=pos+1)
-
+                            words_with_blanks += self.find_words(without(tiles, '?'), starting_branch[tile], pos=pos+1)
+                    # For the sake of scoring, we replace the character used in place of blank for traversal with a '?'
+                    words_with_blanks = [word[:pos] + '?' + word[pos+1:] for word in words_with_blanks]
+                    valid_words += words_with_blanks
         return valid_words
 
     def get_valid_locations(self, board_state):
@@ -302,31 +254,6 @@ class AIPlayer(Player):
 
         return valid_move_params
 
-    def generate_dictionary_tree(self):
-        """
-        :return: The tree-like dictionary showing the relationships between words, used in the faster traversal and
-        generating of anagram solutions than just changing all combinations against a set of dictionary words.
-        """
-
-        # While on paper it'd make more sense to write and load this file from a saved dictionary tree, in actuality
-        # loading it only takes a fraction of a second less time than creating it, so since this method is only called
-        # on game initialization it's better to generate it fresh and have one fewer file to force the user to download.
-
-        # We build a tree from this dictionary of words.
-        dictionary_tree = {'VALID': False, 'WORD': ''}
-        with open("docs/dictionary.txt") as dict_file:
-            dictionary_lines = [word.replace('\n', '') for word in dict_file]
-
-        for word in dictionary_lines:
-            active_branch = dictionary_tree
-            for i, character in enumerate(word):
-                if character not in active_branch:
-                    active_branch[character] = {'VALID': False, 'WORD': active_branch['WORD'] + character}
-                active_branch = active_branch[character]
-                if i == len(word) - 1:
-                    active_branch['VALID'] = True
-        return dictionary_tree, set(dictionary_lines)
-
     def prompt_move(self, board_state):
         """
         :param board_state: A 15 by 15 grid reflecting the current placement of tiles on the board.
@@ -349,4 +276,3 @@ class AIPlayer(Player):
         for vl in valid_locations:
             valid_words = self.find_words(req_tiles=vl.fixed, min_length=vl.min, max_length=vl.max)
             valid_moves += [Move(vl.coords, vl.dir, word) for word in valid_words]
-        valid_moves = [move for move in valid_moves if self.ancillary_valid(move)]

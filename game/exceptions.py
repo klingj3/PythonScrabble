@@ -5,6 +5,7 @@ class InvalidCoordinatesError(Exception):
             msg = "Coordinates fall outside the bounds of the play area."
         super(InvalidCoordinatesError, self).__init__(msg)
 
+
 class InvalidWordError(Exception):
     """Raised when an invalid word is attempted to be played"""
     def __init__(self, word, msg=None):
