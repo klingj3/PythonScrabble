@@ -6,14 +6,14 @@ import os
 # Move up to the parent directory so that we can access the correct ground files.
 os.chdir("../")
 
-player = AIPlayer(id=1, init_tiles=['A', 'P', 'P', 'L', 'E', 'S', 'Z'])
+player = AIPlayer(id=1, init_tiles=['A', 'P', 'P', 'L', 'E', '?', 'Z'])
 
 
 class TestAIPlayer(TestCase):
     def test_find_words(self):
         # Test basic anagram of tiles
         found_words = set(player.find_words())
-        self.assertTrue('APPLES' in found_words and 'APE' in found_words and 'PLEA' in found_words)
+        self.assertTrue('APPLE' in found_words and 'APE' in found_words and 'PLEA' in found_words)
 
         # Test using mandated tiles on the board
         found_words = set(player.find_words(req_tiles=[('M',0)]))
@@ -24,5 +24,5 @@ class TestAIPlayer(TestCase):
         self.assertTrue(found_words == set([]))
 
         # Test that blank words are being created appropriately.
-
-
+        found_words = set(player.find_words())
+        self.assertTrue('APPLE?' in found_words)

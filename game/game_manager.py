@@ -1,4 +1,4 @@
-from game.scrabble_box import Board, TileBag
+from game.scrabble_box import Board, Rulebook, TileBag
 from game.scrabble_players import HumanPlayer, AIPlayer
 
 
@@ -18,12 +18,12 @@ class GameMaster(object):
         # Generate the game pieces.
         self.board = Board()
         self.bag = TileBag()
-
+        self.rulebook = Rulebook()
         self.players = []
         for i in range(human_count):
             self.players.append(HumanPlayer(id=i, init_tiles=self.bag.grab(7)))
         for i in range(ai_count):
-            self.players.append(AIPlayer(id=human_count+i, init_tiles=self.bag.grab(7), name="AI {}".format(i+1)))
+            self.players.append(AIPlayer(id=human_count+i, init_tiles=['Q', 'I', 'R', 'N', 'A', 'E', 'V'], name="AI {}".format(i+1)))
 
     def play_game(self):
         """
@@ -44,4 +44,18 @@ class GameMaster(object):
                 # TODO: Beautify Command-line appearance
                 print(self.board)
                 print('TURN: {}'.format(player.name))
+                move, tiles = player.prompt_move(self.board.state)
+
+                # TODO: Give the player new tiles after checking which ones they've used.
+
+                # Place this move on the board.
+                self.board.play_move(move)
+
+                print(self.board)
                 exit()
+
+
+if __name__ == '__main__':
+    gm = GameMaster(ai_count=1)
+    gm.play_game()
+

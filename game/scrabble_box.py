@@ -11,6 +11,7 @@ import sys
 # TODO: Remove debugs once the final tests are completed.
 debug_mode = False
 
+
 class Board(object):
     def __init__(self):
         # The special tiles.
@@ -32,7 +33,7 @@ class Board(object):
             'W  l   W   l  W',
         ]
         # The board on which the tiles will actually be placed.
-        self.board = [''.join([' ' for _ in range(15)]) for _ in range(15)]
+        self.state = [''.join([' ' for _ in range(15)]) for _ in range(15)]
 
     def __str__(self):
         """
@@ -41,26 +42,17 @@ class Board(object):
         string_rep = "   " + ' '.join([str(hex(x))[-1] for x in range(15)]) + "\n"
         for i in range(15):
             # TODO: USE COLOR TOOLS TO MAKE DISPLAY SPECIAL TILES DIFFERENT AND MAKE THEM DIFFERENT COLOR
-            string_rep += str(hex(i))[-1] + '  ' + ' '.join([self.board[i][j] if self.board[i][j] != ' ' else
-                                                             self.board_special_tiles[i][j] for j in range(15)]) + '\n'
+            string_rep += str(hex(i))[-1] + '  ' + ' '.join([self.state[i][j] for j in range(15)]) + '\n'
         return string_rep
 
-    def place_word(self, word, coords, dir):
-        """
-        Places a word on the board, if valid
-        :param word: The word to be placed, including both the tiles of the player and the tiles on the board.
-        :param coords: The coords at which the first letter of the word will be placed
-        :param dir: the direction, either down or right, from this first word in which the remainder will move.
-        :return: None
-        """
-
-        coord_x, coord_y = coords
-        if dir == 'D':
-            for i, c in enumerate(word):
-                self.board[coord_y+i][coord_x] = c
-        if dir == 'R':
-            for i, c in enumerate(word):
-                self.board[coord_y][coord_x+i] = c
+    def play_move(self, move):
+        y, x = move.coords
+        if move.dir == 'D':
+            for i, c in enumerate(move.word):
+                self.state[y + i] = self.state[y + i][:x] + c + self.state[y + i][x+1:]
+        if move.dir == 'R':
+            self.state[y] = self.state[y][:x] + move.word + self.state[y][x+len(move.word):]
+        return True
 
 
 class Rulebook(object):
@@ -143,7 +135,7 @@ class Rulebook(object):
         _ G _
         And must then check that DA and OM are valid (They are), and then score the move.
         Returns 0 if the move is invalid.
-        :param move: namedtuple containing ('move', 'coords', 'dir', 'word')
+        :param move: namedtuple defined as as ('move', 'coords dir word')
         :param board_state: List of strings representing the current board condition
         :return: Score
         :rtype int
@@ -155,62 +147,51 @@ class Rulebook(object):
         def neighbored_y(y, x):
             return (y > 0 and board_state[y-1][x] != ' ') or (y < 14 and board_state[y+1][x] != ' ')
 
-        if not self.word_is_valid(move.word):
-            return 0
+        if not allow_illegal and not self.word_is_valid(move.word):
+            return -1
+
+        assert(move.dir == 'R' or move.dir == 'D')
 
         total_score = self.score_word(move.coords[0], move.coords[1], move.word, move.dir, board_state)
 
-        start_y, start_x = move.coords
-        if move.dir == 'D':
-            for i, y in enumerate(range(start_y, (len(move.word)+start_y))):
-                if neighbored_x(y, start_x):
-                    word_start, word_end = start_x, start_x
-                    while word_start > 0 and board_state[y][word_start - 1] != ' ':
-                        word_start -= 1
-                    while word_end < 14 and board_state[y][word_end + 1] != ' ':
-                        word_end += 1
-                    anc_word = board_state[y][word_start:start_x] + move.word[i] + board_state[y][start_x+1:word_end+1]
+        y, x = move.coords
+        for i, tile in enumerate(move.word):
+            if move.dir == 'D' and neighbored_x(y+i, x):
+                word_start, word_end = x, x
+                while word_start > 0 and board_state[y+i][word_start - 1] != ' ':
+                    word_start -= 1
+                while word_end < 14 and board_state[y+i][word_end + 1] != ' ':
+                    word_end += 1
+                anc_word = board_state[y+i][word_start:x] + tile + board_state[y+i][x+1:word_end+1]
 
-                    # TODO: Remove debug statements
-                    if debug_mode:
-                        print(anc_word + ' ' + str(anc_word in self.scrabble_dictionary))
+                if allow_illegal or self.word_is_valid(anc_word):
+                    total_score += self.score_word(word_start, x, anc_word, 'R', board_state)
+                else:
+                    return -1
+            elif neighbored_y(y, x+i):
+                word_start, word_end = y, y
+                while word_start > 0 and board_state[word_start - 1][x+i] != ' ':
+                    word_start -= 1
+                while word_end < 14 and board_state[word_end + 1][x+i] != ' ':
+                    word_end += 1
+                anc_word = ''.join([board_state[word_y][x+i] if word_y != y else tile
+                                    for word_y in range(word_start, word_end+1)])
 
-                    if self.word_is_valid(anc_word):
-                        total_score += self.score_word(y, word_start, anc_word, 'R', board_state)
-                    else:
-                        return 0
+                if allow_illegal or self.word_is_valid(anc_word):
+                    total_score += self.score_word(y, word_start, anc_word, 'R', board_state)
+                else:
+                    return -1
 
-            return True
-        else:
-            for i, x in enumerate(range(start_x, (len(move.word)+start_x))):
-                if neighbored_y(start_y, x):
-                    word_start, word_end = start_y, start_y
-                    while word_start > 0 and board_state[word_start - 1][x] != ' ':
-                        word_start -= 1
-                    while word_end < 14 and board_state[word_end + 1][x] != ' ':
-                        word_end += 1
-                    anc_word = ''.join([board_state[word_y][x] if word_y != start_y else move.word[i]
-                                        for word_y in range(word_start, word_end+1)])
+        return total_score
 
-                    # TODO: Remove debug statements
-                    if debug_mode:
-                        print(anc_word + ' ' + str(anc_word in self.scrabble_dictionary))
-
-                    if self.word_is_valid(anc_word):
-                        total_score += self.score_word(word_start, x, anc_word, 'D', board_state)
-                    else:
-                        return 0
-            return True
-
-    def score_word(self, y, x, word, dir, board_state, allow_illegal=False):
+    def score_word(self, y, x, word, dir, board_state):
         """
+        Scores a word played starting at coordinates x, y in direction dir.
         :param y: Starting y coordinate
         :param x: starting x coordinate
         :param word: The word being played, new tiles as well as (potentially) existing board tiles.
         :param dir: 'R' or 'D' representing the direction in which the word is moving.
         :param board_state: A list of 15 strings of 15 characters representing the current state of the board.
-        :param allow_illegal: If False, returns -1 i the word is not in the dictionary. Otherwise, scores
-        the word as if it was entirely valid.
         :return: Integer score of the word
         :rtype int
         """
@@ -220,13 +201,20 @@ class Rulebook(object):
 
         assert(dir == 'R' or dir == 'D')
 
+        # Tracks the number of tiles the player has used in this word, as using all 7 is a 50 point bonus.
+        player_tiles_used = 0
+
         # Instead of having an if statement for R and D with largely repeated contents, we can just add the
         # integer cast of the equality of the given direction to a particular direction.
         is_d, is_r = int(dir == 'D'), int(dir == 'R')
 
         for i, tile in enumerate(word):
+            if tile.islower():
+                tile = '?'
+
             # The current tile (or none) on the board at the current location.
             board_curr_tile = board_state[y+i*is_d][x+i*is_r]
+
             # Check to see if something has already been placed on the board.
             if board_curr_tile != ' ':
                 if board_curr_tile != tile:
@@ -235,6 +223,8 @@ class Rulebook(object):
                 else:
                     score += self.tile_scores[tile]
             else:
+                player_tiles_used += 1
+
                 # Else, this is a fresh placed tile, in which case we look at the special value of this square
                 spec_tile = self.board_special_tiles[y+i*is_d][x+i*is_r]
                 if spec_tile == ' ':
@@ -252,27 +242,14 @@ class Rulebook(object):
                             # TODO: Remove ancillary debug statement
                             assert(spec_tile in 'w*')
                             word_mul *= 2
+
+        if player_tiles_used == 7:
+            score += 50
         return score
 
     def word_is_valid(self, word):
-        def check_tree(branch, pos=0):
-            if pos >= len(word):
-                return True
-            char = word[pos]
-            if char == '?':
-                return any([check_tree(branch[value], pos+1) for key, value in branch
-                            if key != 'VALID' and key != 'WORD' for key, value in branch.items()])
-            else:
-                if char in branch:
-                    return check_tree(branch[char], pos+1)
-                else:
-                    return False
-
-        # If there is no blank tile, we simply assert that the word is in our dictionary
-        if '?' not in word:
-            return word in self.scrabble_dictionary
-        else:
-            return check_tree(self.dictionary_root)
+        # We cast the word to uppercase in case there's a blank tile in it.
+        return word.upper() in self.scrabble_dictionary
 
 
 class TileBag(object):

@@ -24,25 +24,13 @@ class Player(object):
         self.score_hist = []
         self.word_hist = []
         self.tiles = init_tiles
-        assert(len(self.tiles) == 7)
+        # assert(len(self.tiles) == 7)
 
     def __str__(self):
         return self.name
 
     def get_score(self):
         return self.score_hist[-1]
-
-    def recieve_tiles(self, new_tiles):
-        """
-        Used for the game master to pass new tiles to a player after said player has made a move
-        :param new_tiles: A list of single-character strings representing the tiles
-        :return: None
-        """
-        self.tiles += new_tiles
-        if debug_mode:
-            # Check that too many tiles haven't been given. As late-game enables a player to have fewer than seven
-            # tiles, we must allow for that scenario in this test despite its rarity.
-            assert(len(self.tiles) <= 7)
 
     def prompt_move(self, board_state):
         """
@@ -52,7 +40,15 @@ class Player(object):
         pass
 
     def set_tiles(self, tiles):
+        """
+        Used for the Game Master to set the player's tiles after a move.
+        :param tiles: The list of single character strings representing the new tiles.
+        :return: None
+        """
         self.tiles = tiles
+
+        if debug_mode:
+            assert(len(self.tiles) <= 7)
 
 
 class HumanPlayer(Player):
@@ -105,7 +101,7 @@ class AIPlayer(Player):
         :return: A list of valid words which can be formed using the tiles in the rack and with the mandated positions
         of the tiles given.
         """
-        if pos == max_length:
+        if pos > max_length:
             return []
 
         if tiles is None:
@@ -140,21 +136,23 @@ class AIPlayer(Player):
         # in the tree
         if req_tiles and req_tiles[0][1] == pos:
             if req_tiles[0][0] in starting_branch:
-                valid_words += self.find_words(tiles, starting_branch[req_tiles[0][0]], req_tiles[1:], pos=pos+1)
+                valid_words += self.find_words(tiles, starting_branch[req_tiles[0][0]], req_tiles[1:], pos=pos+1,
+                                               min_length=min_length, max_length=max_length)
         else:
             # Casting tile to a set ensures we don't doubly traverse a branch in the case of repeated letters.
             for tile in set(tiles):
                 if tile != '?':
                     if tile in starting_branch:
-                        valid_words += self.find_words(without(tiles, tile), starting_branch[tile], pos=pos+1)
+                        valid_words += self.find_words(without(tiles, tile), starting_branch[tile], pos=pos+1,
+                                                       min_length=min_length, max_length=max_length)
                 else:
                     # In the case of blank tiles, we traverse every branch
                     words_with_blanks = []
                     for key, value in starting_branch.items():
                         if key != 'VALID' and key != 'WORD':
-                            words_with_blanks += self.find_words(without(tiles, '?'), starting_branch[tile], pos=pos+1)
-                    # For the sake of scoring, we replace the character used in place of blank for traversal with a '?'
-                    words_with_blanks = [word[:pos] + '?' + word[pos+1:] for word in words_with_blanks]
+                            words_with_blanks += self.find_words(without(tiles, '?'), starting_branch[key], pos=pos+1,
+                                                                 min_length=min_length, max_length=max_length)
+                    words_with_blanks = [word[:pos] + word[pos].lower() + word[pos+1:] for word in words_with_blanks]
                     valid_words += words_with_blanks
         return valid_words
 
@@ -176,7 +174,9 @@ class AIPlayer(Player):
             :param coords: y and x integer coordinates in tuple
             :param direction: string direction 'D' or 'R' for down or right.
             :param num: The number of tiles being placed.
-            :return: tuple (int, int, list)
+            :return a tuple containing the minimum word length, maximum word length, and the locations in the word of
+            preplaced tiles.
+            :rtype tuple (int, int, list)
             """
 
             def is_island(y, x):
@@ -191,13 +191,13 @@ class AIPlayer(Player):
                 if (y, x) == (7, 7):
                     return False
 
-                min_x, max_x = max(x - 1, 0), min(x + 1, len(board_state[0]))
-                min_y, max_y = max(y - 1, 0), min(y + 1, len(board_state))
-                for neighbor_y in range(min_y, max_y + 1):
-                    if board_state[neighbor_y][x] != ' ':
+                min_x, max_x = max(x - 1, 0), min(x + 1, 14)
+                min_y, max_y = max(y - 1, 0), min(y + 1, 14)
+                for near_y in range(min_y, max_y + 1):
+                    if board_state[near_y][x] != ' ':
                         return False
-                for neighbor_x in range(min_x, max_x+1):
-                    if board_state[y][neighbor_x] != ' ':
+                for near_x in range(min_x, max_x+1):
+                    if board_state[y][near_x] != ' ':
                         return False
                 return True
 
@@ -255,10 +255,6 @@ class AIPlayer(Player):
         return valid_move_params
 
     def prompt_move(self, board_state):
-        """
-        :param board_state: A 15 by 15 grid reflecting the current placement of tiles on the board.
-        :return:
-        """
 
         """
         First, we look at all the positions on the board and determine which coordinates can be the starting position 
@@ -276,3 +272,19 @@ class AIPlayer(Player):
         for vl in valid_locations:
             valid_words = self.find_words(req_tiles=vl.fixed, min_length=vl.min, max_length=vl.max)
             valid_moves += [Move(vl.coords, vl.dir, word) for word in valid_words]
+
+        # Now we score our prospective moves, and remove the invalid ones.
+        move_scores = [(move, self.rulebook.score_move(move, board_state)) for move in valid_moves
+                       if self.rulebook.score_move(move, board_state) > 0]
+
+        move_scores = sorted(move_scores, key=lambda x: x[1], reverse=True)
+
+        if debug_mode:
+            print(self.tiles)
+            top_scores = move_scores[:3]
+            for move, score in top_scores:
+                print("Word {} for {} points, from coords {} {}".format(move.word, score, move.coords[0],
+                                                                        move.coords[1]))
+        move, score = move_scores[0]
+
+        return move, self.tiles
