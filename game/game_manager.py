@@ -38,21 +38,21 @@ class GameMaster(object):
 
         # The game ends when oen player has used all of their tiles, or if everyone skips for two turns because nothing
         # can be placed. (This is very unlikely, but must be included as an edge case.
+        i = 0
         while consecutive_skips < 2*player_count or min([len(player.tiles()) for player in self.players]) == 0:
             for player in self.players:
                 # On each player's turn we'll print the board, the scores, and the active player's tiles.
-                # TODO: Beautify Command-line appearance
-                print(self.board)
                 print('TURN: {}'.format(player.name))
-                move, tiles = player.prompt_move(self.board.state)
 
-                # TODO: Give the player new tiles after checking which ones they've used.
+                move = player.prompt_move(self.board.state)
 
                 # Place this move on the board.
                 self.board.play_move(move)
 
+                num_new_tiles = 7 - len(player.tiles)
+                player.receive_tiles(self.bag.grab(num_new_tiles))
+
                 print(self.board)
-                exit()
 
 
 if __name__ == '__main__':

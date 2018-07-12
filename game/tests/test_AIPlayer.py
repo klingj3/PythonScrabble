@@ -25,4 +25,4 @@ class TestAIPlayer(TestCase):
 
         # Test that blank words are being created appropriately.
         found_words = set(player.find_words())
-        self.assertTrue('APPLE?' in found_words)
+        self.assertTrue('APPLEs' in found_words)

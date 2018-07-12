@@ -17,9 +17,11 @@ class InvalidWordError(Exception):
 
 class InvalidPlacementError(Exception):
     """ Raised when a played word does not align with tiles currently on the board."""
-    def __init__(self, word, msg=None):
+    def __init__(self, *, word, msg=None, true_tile=None, attempted_tile=None):
         if msg is None:
             msg = "Word %s cannot be played in the specified position" % word
+            if true_tile is not None and attempted_tile is not None:
+                msg += "\n{} exists at this point, while {} was attempted".format(true_tile, attempted_tile)
         super(InvalidPlacementError, self).__init__(msg)
         self.word = word
 

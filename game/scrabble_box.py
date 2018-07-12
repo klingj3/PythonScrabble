@@ -197,7 +197,7 @@ class Rulebook(object):
         """
 
         score = 0
-        word_mul = 0
+        word_mul = 1
 
         assert(dir == 'R' or dir == 'D')
 
@@ -219,7 +219,7 @@ class Rulebook(object):
             if board_curr_tile != ' ':
                 if board_curr_tile != tile:
                     # The character on the board at this point does not match the tile which should exist in the word.
-                    raise InvalidPlacementError(word)
+                    raise InvalidPlacementError(word=word, true_tile=board_curr_tile, attempted_tile=tile)
                 else:
                     score += self.tile_scores[tile]
             else:
@@ -239,10 +239,8 @@ class Rulebook(object):
                         if spec_tile == 'W':
                             word_mul *= 3
                         else:
-                            # TODO: Remove ancillary debug statement
-                            assert(spec_tile in 'w*')
                             word_mul *= 2
-
+        score *= word_mul
         if player_tiles_used == 7:
             score += 50
         return score
@@ -289,9 +287,6 @@ class TileBag(object):
         less computational energy, it just feels more authentic to the scrabble experience to shuffle each time.
         """
         random.shuffle(self.bag)
-
-        # If there are not enough tiles in the bag, we just take what's available.
-        num_tiles = min(num_tiles, len(self.bag))
 
         # Pull the requested tiles and update the bag.
         new_tiles, self.bag = self.bag[:num_tiles], self.bag[num_tiles:]

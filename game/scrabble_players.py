@@ -6,6 +6,7 @@ import sys
 # TODO: REMOVE DEBUG STATEMENTS
 debug_mode = True
 
+
 class Player(object):
     def __init__(self, id, init_tiles, name=None):
         while name is None:
@@ -29,26 +30,63 @@ class Player(object):
     def __str__(self):
         return self.name
 
-    def get_score(self):
-        return self.score_hist[-1]
+    def get_move(self, board_state):
+        """
+        :param board_state: A list of strings reprenting the currently played tiles on the scrabble board.
+        :return: A namedtuple Move defined as ('Move', 'coords word dir')
+        :rtype namedtuple
+        """
+        pass
 
     def prompt_move(self, board_state):
         """
         :param board_state: The current board
-        :return: A string representing the player's desired move, or a reordering of the tiles.
+        :return: A Tuple containing the Move namedtuple the player is performing.
         """
-        pass
+
+        def remove_used_tiles(move):
+            coords, word, dir = move.coords, move.word, move.dir
+            is_d, is_r = (dir == 'D', dir == 'R')
+            y, x = coords
+            for i, tile in enumerate(word):
+                # If the board is blank at this point, remove the tile from our tiles.
+                if board_state[y + i * is_d][x + i * is_r] == ' ':
+                    if tile.islower():
+                        tile = '?'
+                    self.tiles.remove(tile)
+
+        # Get the next move
+        move = self.get_move(board_state)
+
+        # Remove the tiles from the bag.
+        remove_used_tiles(move)
+
+        return move
+
+    def receive_tiles(self, new_tiles):
+        """
+        Recieve new tiles after a successfully played turn.
+        :param new_tiles: A list of single-character strings representing the Tiles.
+        :return: None
+        """
+        self.tiles += new_tiles
+
+        if debug_mode:
+            assert (len(self.tiles) <= 7)
 
     def set_tiles(self, tiles):
         """
-        Used for the Game Master to set the player's tiles after a move.
+        Used for the Game Master to set the player's tiles for debugging purposes.
         :param tiles: The list of single character strings representing the new tiles.
         :return: None
         """
+        if not debug_mode:
+            sys.stderr.write('SET TILES TO BE USED ONLY IN DEBUG MODE.')
+
         self.tiles = tiles
 
         if debug_mode:
-            assert(len(self.tiles) <= 7)
+            assert (len(self.tiles) <= 7)
 
 
 class HumanPlayer(Player):
@@ -56,10 +94,11 @@ class HumanPlayer(Player):
     This is a class for a human player to interact with the scrabble board directly, interacting with the
     Game Master through the command line/terminal interface.
     """
+
     def __init__(self, id, init_tiles, name=None):
         Player.__init__(self, id, init_tiles, name)
 
-    def prompt_move(self, board_state):
+    def get_move(self, board_state):
         """
         :param board_state: The current board
         :return: A string representing the player's desired move. ALl error checking regarding the legality of this
@@ -72,6 +111,7 @@ class AIPlayer(Player):
     """
     AI Competitor
     """
+
     def __init__(self, id, init_tiles, name=None):
         # Call the default constructor to set name and tiles
         Player.__init__(self, id, init_tiles, name="AI {}".format(id))
@@ -96,6 +136,8 @@ class AIPlayer(Player):
         in which the tile must occur. For example, if the second letter of the word must be 'A' and the third
         letter of the word must be 'M', this variable would be [('A',1), ('M',2)].
         :param pos: The current position in the word.
+        :param min_length: The shortest a generated word can be, dictated by the number of tiles until a played piece
+        borders an existing piece on the board.
         :param max_length: The longest a generated word can be, dictated by the coordinates on which the first tile
         will be placed.
         :return: A list of valid words which can be formed using the tiles in the rack and with the mandated positions
@@ -109,10 +151,8 @@ class AIPlayer(Player):
         if starting_branch is None:
             starting_branch = self.dictionary_root
 
-        # We must check that the mandated tiles are in their correct order.
-        # TODO: Remove this function once the AI is complete and this condition is unnecessary
-        assert(len(req_tiles) == 1 or
-               all([req_tiles[i][1] < req_tiles[i + 1][1] for i in range(len(req_tiles) - 1)]))
+        assert (len(req_tiles) == 1 or
+                all([req_tiles[i][1] < req_tiles[i + 1][1] for i in range(len(req_tiles) - 1)]))
 
         def without(full_list, item):
             """
@@ -127,7 +167,7 @@ class AIPlayer(Player):
                 local_list.remove(item)
             return local_list
 
-        if starting_branch['VALID'] and len(starting_branch['WORD']) >= min_length:
+        if starting_branch['VALID'] and len(starting_branch['WORD']) >= min_length and len(tiles) < len(self.tiles):
             valid_words = [starting_branch['WORD']]
         else:
             valid_words = []
@@ -136,23 +176,35 @@ class AIPlayer(Player):
         # in the tree
         if req_tiles and req_tiles[0][1] == pos:
             if req_tiles[0][0] in starting_branch:
-                valid_words += self.find_words(tiles, starting_branch[req_tiles[0][0]], req_tiles[1:], pos=pos+1,
-                                               min_length=min_length, max_length=max_length)
+                valid_words += self.find_words(tiles=tiles,
+                                               starting_branch=starting_branch[req_tiles[0][0]],
+                                               req_tiles=req_tiles[1:],
+                                               pos=pos + 1,
+                                               min_length=min_length,
+                                               max_length=max_length)
         else:
             # Casting tile to a set ensures we don't doubly traverse a branch in the case of repeated letters.
             for tile in set(tiles):
                 if tile != '?':
                     if tile in starting_branch:
-                        valid_words += self.find_words(without(tiles, tile), starting_branch[tile], pos=pos+1,
-                                                       min_length=min_length, max_length=max_length)
+                        valid_words += self.find_words(tiles=without(tiles, tile),
+                                                       starting_branch=starting_branch[tile],
+                                                       pos=pos + 1,
+                                                       min_length=min_length,
+                                                       max_length=max_length,
+                                                       req_tiles=req_tiles)
                 else:
                     # In the case of blank tiles, we traverse every branch
                     words_with_blanks = []
                     for key, value in starting_branch.items():
                         if key != 'VALID' and key != 'WORD':
-                            words_with_blanks += self.find_words(without(tiles, '?'), starting_branch[key], pos=pos+1,
-                                                                 min_length=min_length, max_length=max_length)
-                    words_with_blanks = [word[:pos] + word[pos].lower() + word[pos+1:] for word in words_with_blanks]
+                            words_with_blanks += self.find_words(tiles=without(tiles, '?'),
+                                                                 starting_branch=starting_branch[key],
+                                                                 pos=pos + 1,
+                                                                 min_length=min_length,
+                                                                 max_length=max_length,
+                                                                 req_tiles=req_tiles)
+                    words_with_blanks = [word[:pos] + word[pos].lower() + word[pos + 1:] for word in words_with_blanks]
                     valid_words += words_with_blanks
         return valid_words
 
@@ -167,10 +219,10 @@ class AIPlayer(Player):
         def move_params_from_coords(coords, direction, num):
             """
             Asserts that the number of tiles can be placed in the direction dir with the coordinates coords.
-            Returns the (zero indexed) number of tiles until this becomes valid, and the ultimate length of the move. For example,
-            if we're trying to place five tiles across line '_ _ A _ _ _ _ _ _ _ _ _ _ _ _ ' from the first
-            position, the result would be (2, 6, [(2, A)] as it becomes valid at tile 2 and the maximum number of letters
-            in the result will be six.
+            Returns the (zero indexed) number of tiles until this becomes valid, and the ultimate length of the move.
+            For example, if we're trying to place five tiles across line '_ _ A _ _ _ _ _ _ _ _ _ _ _ _ ' from the first
+            position, the result would be (2, 6, [(2, A)] as it becomes valid at tile 2 and the maximum number of
+            letters in the result will be six.
             :param coords: y and x integer coordinates in tuple
             :param direction: string direction 'D' or 'R' for down or right.
             :param num: The number of tiles being placed.
@@ -196,7 +248,7 @@ class AIPlayer(Player):
                 for near_y in range(min_y, max_y + 1):
                     if board_state[near_y][x] != ' ':
                         return False
-                for near_x in range(min_x, max_x+1):
+                for near_x in range(min_x, max_x + 1):
                     if board_state[y][near_x] != ' ':
                         return False
                 return True
@@ -207,39 +259,41 @@ class AIPlayer(Player):
             y, x = coords
             fixed_tiles = []
             tiles_rem = num
+
             tiles_to_validity = -1
+
             if direction == 'D':
                 while tiles_rem:
                     if y >= 15:
-                        return tiles_to_validity, y-start_y, fixed_tiles
+                        return tiles_to_validity, y - start_y, fixed_tiles
                     if tiles_to_validity == -1:
                         if not is_island(y, x):
-                            tiles_to_validity = y - start_y
+                            tiles_to_validity = y - start_y + 1
                     if board_state[y][x] == ' ':
                         tiles_rem -= 1
                     else:
-                        fixed_tiles.append((y-start_y, board_state[y][x]))
+                        fixed_tiles.append((board_state[y][x], y - start_y))
                     y += 1
-                return tiles_to_validity, (y - start_y), fixed_tiles
+                return tiles_to_validity, (y - start_y + 1), fixed_tiles
             else:
                 while tiles_rem:
                     if x >= 15:
-                        return tiles_to_validity, x-start_x, fixed_tiles
+                        return tiles_to_validity, x - start_x, fixed_tiles
                     if tiles_to_validity == -1:
                         if not is_island(y, x):
-                            tiles_to_validity = x - start_x
+                            tiles_to_validity = x - start_x + 1
                     if board_state[y][x] == ' ':
                         tiles_rem -= 1
                     else:
-                        fixed_tiles.append((x-start_x, board_state[y][x]))
+                        fixed_tiles.append((board_state[y][x], x - start_x))
                     x += 1
-                return tiles_to_validity, (x - start_x), fixed_tiles
+                return tiles_to_validity, (x - start_x + 1), fixed_tiles
 
         valid_move_params = []
         num = len(self.tiles)
 
         # Check moves for the down direction
-        for y in range(15 - num):
+        for y in range(15):
             for x in range(15):
                 min_len, max_len, fixed_tiles = move_params_from_coords((y, x), 'D', num)
                 if min_len != -1:
@@ -247,18 +301,18 @@ class AIPlayer(Player):
 
         # Check moves for the right direction.
         for y in range(15):
-            for x in range(15 - num):
+            for x in range(15):
                 min_len, max_len, fixed_tiles = move_params_from_coords((y, x), 'R', num)
                 if min_len != -1:
                     valid_move_params.append(MoveParam((y, x), 'R', min_len, max_len, fixed_tiles))
 
         return valid_move_params
 
-    def prompt_move(self, board_state):
+    def get_move(self, board_state):
 
         """
-        First, we look at all the positions on the board and determine which coordinates can be the starting position 
-        for a word, the minimum length of a word which adheres to the placement rules of scrabble, and the maximum 
+        First, we look at all the positions on the board and determine which coordinates can be the starting position
+        for a word, the minimum length of a word which adheres to the placement rules of scrabble, and the maximum
         length of a word formed this point.
         """
         valid_locations = self.get_valid_locations(board_state)
@@ -267,9 +321,12 @@ class AIPlayer(Player):
         Knowing where we can place words and how long the words can be moved, as well as what tiles this move would
         be forced to incorporate, we can find what valid words we can play.
         """
-        valid_moves = []
         Move = namedtuple('move', 'coords dir word')
+
+        valid_moves = []
         for vl in valid_locations:
+            if vl.coords == (0, 7):
+                print(vl)
             valid_words = self.find_words(req_tiles=vl.fixed, min_length=vl.min, max_length=vl.max)
             valid_moves += [Move(vl.coords, vl.dir, word) for word in valid_words]
 
@@ -281,10 +338,11 @@ class AIPlayer(Player):
 
         if debug_mode:
             print(self.tiles)
+            print('WAZZZIII')
             top_scores = move_scores[:3]
             for move, score in top_scores:
                 print("Word {} for {} points, from coords {} {}".format(move.word, score, move.coords[0],
                                                                         move.coords[1]))
+            sys.stdout.flush()
         move, score = move_scores[0]
-
-        return move, self.tiles
+        return move
