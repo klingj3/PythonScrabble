@@ -155,32 +155,36 @@ class Rulebook(object):
 
         for i, tile in enumerate(move.word):
             if move.dir == 'D' and neighbored_x(y+i, x):
-                # As the core word direction is down, we look for ancillary formed words along the X axis
-                word_start, word_end = x, x
-                while word_start > 0 and board_state[y+i][word_start - 1] != ' ':
-                    word_start -= 1
-                while word_end < 14 and board_state[y+i][word_end + 1] != ' ':
-                    word_end += 1
-                anc_word = board_state[y+i][word_start:x] + tile + board_state[y+i][x+1:word_end+1]
+                # We only care if this is a fresh tile
+                if board_state[y+i][x] == ' ':
+                    # As the core word direction is down, we look for ancillary formed words along the X axis
+                    word_start, word_end = x, x
+                    while word_start > 0 and board_state[y+i][word_start - 1] != ' ':
+                        word_start -= 1
+                    while word_end < 14 and board_state[y+i][word_end + 1] != ' ':
+                        word_end += 1
+                    anc_word = board_state[y+i][word_start:x] + tile + board_state[y+i][x+1:word_end+1]
 
-                if allow_illegal or self.word_is_valid(anc_word):
-                    total_score += self.score_word(y+i, word_start, anc_word, 'R', board_state, move)
-                else:
-                    return -1
-            elif neighbored_y(y, x+i):
-                # As the core word direction is right, we look for ancillary formed words along the Y axis
-                word_start, word_end = y, y
-                while word_start > 0 and board_state[word_start - 1][x+i] != ' ':
-                    word_start -= 1
-                while word_end < 14 and board_state[word_end + 1][x+i] != ' ':
-                    word_end += 1
-                anc_word = ''.join([board_state[word_y][x+i] if word_y != y else tile
-                                    for word_y in range(word_start, word_end+1)])
+                    if allow_illegal or self.word_is_valid(anc_word):
+                        total_score += self.score_word(y+i, word_start, anc_word, 'R', board_state, move)
+                    else:
+                        return -1
+            elif move.dir == 'R' and neighbored_y(y, x+i):
+                # We only care if this is a fresh tile
+                if board_state[y][x+i] == ' ':
+                    # As the core word direction is right, we look for ancillary formed words along the Y axis
+                    word_start, word_end = y, y
+                    while word_start > 0 and board_state[word_start - 1][x+i] != ' ':
+                        word_start -= 1
+                    while word_end < 14 and board_state[word_end + 1][x+i] != ' ':
+                        word_end += 1
+                    anc_word = ''.join([board_state[word_y][x+i] if word_y != y else tile
+                                        for word_y in range(word_start, word_end+1)])
 
-                if allow_illegal or self.word_is_valid(anc_word):
-                    total_score += self.score_word(word_start, x+i, anc_word, 'D', board_state, move)
-                else:
-                    return -1
+                    if allow_illegal or self.word_is_valid(anc_word):
+                        total_score += self.score_word(word_start, x+i, anc_word, 'D', board_state, move)
+                    else:
+                        return -1
 
         return total_score
 
@@ -217,7 +221,7 @@ class Rulebook(object):
 
             # Check to see if something has already been placed on the board.
             if board_curr_tile != ' ':
-                if board_curr_tile != tile:
+                if board_curr_tile != tile and not (board_curr_tile.islower() and tile == '?'):
                     # The character on the board at this point does not match the tile which should exist in the word.
                     print(y, x, word, dir)
                     print(move)
@@ -234,7 +238,7 @@ class Rulebook(object):
                 else:
                     if spec_tile == 'l':
                         score += self.tile_scores[tile]*2
-                    elif self.board_special_tiles[y][x+i] == 'L':
+                    elif spec_tile == 'L':
                         score += self.tile_scores[tile]*3
                     else:
                         # Otherwise, tile is a word multiplier.

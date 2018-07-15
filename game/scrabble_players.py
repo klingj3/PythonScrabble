@@ -228,9 +228,9 @@ class AIPlayer(Player):
         :param coords: y and x integer coordinates in tuple
         :param direction: string direction 'D' or 'R' for down or right.
         :param board_state: The list of strings currently representing the tiles played on the board.
-        :return a tuple containing the minimum word length, maximum word length, and the locations in the word of
+        :return a tuple containing the minimum word length and the locations in the word of
         pre-placed tiles.
-        :rtype tuple (int, int, list)
+        :rtype tuple (int, list)
         """
 
         def is_island(y, x):
@@ -272,7 +272,7 @@ class AIPlayer(Player):
             here and only later check if it aligns with the leading tile.
             """
             if y > 0 and board_state[y-1][x] != ' ':
-                return -1, -1, []
+                return -1, []
 
             while y < 15 and (tiles_rem or board_state[y][x] != ' '):
                 if tiles_to_validity == -1:
@@ -283,13 +283,13 @@ class AIPlayer(Player):
                 else:
                     fixed_tiles.append((board_state[y][x], y - start_y))
                 y += 1
-            return tiles_to_validity, (y - start_y), fixed_tiles
+            return tiles_to_validity, fixed_tiles
         else:
             """
             Similarly, if going right we first check there's no tile to our immediate left. 
             """
             if x > 0 and board_state[y][x-1] != ' ':
-                return -1, -1, []
+                return -1, []
             while x < 15 and (tiles_rem or board_state[y][x] != ' '):
                 if tiles_to_validity == -1:
                     if not is_island(y, x):
@@ -299,7 +299,7 @@ class AIPlayer(Player):
                 else:
                     fixed_tiles.append((board_state[y][x], x - start_x))
                 x += 1
-            return tiles_to_validity, (x - start_x), fixed_tiles
+            return tiles_to_validity, fixed_tiles
 
     def get_valid_locations(self, board_state):
         """
@@ -314,9 +314,12 @@ class AIPlayer(Player):
         for y in range(15):
             for x in range(15):
                 for direction in ['D', 'R']:
-                    min_len, max_len, fixed_tiles = self.get_move_params((y, x), direction, board_state)
+                    min_len, fixed_tiles = self.get_move_params((y, x), direction, board_state)
                     if min_len != -1:
-                        valid_move_params.append(MoveParam((y, x), direction, min_len, max_len, fixed_tiles))
+                        if direction == 'D':
+                            valid_move_params.append(MoveParam((y, x), direction, min_len, 15-y, fixed_tiles))
+                        else:
+                            valid_move_params.append(MoveParam((y, x), direction, min_len, 15-x, fixed_tiles))
 
         return valid_move_params
 

@@ -56,10 +56,5 @@ class GameMaster(object):
 
 
 if __name__ == '__main__':
-    player = AIPlayer(id=0, init_tiles=[c for c in 'QUEENLY'], name="AI {}".format(0))
-    board = Board()
-    board.play_move(player.prompt_move(board.state))
-    print(board)
-    player.receive_tiles([c for c in 'HDIOEPF'])
-    board.play_move(player.prompt_move(board.state))
-    print(board)
+    gm = GameMaster(ai_count=1)
+    gm.play_game()
