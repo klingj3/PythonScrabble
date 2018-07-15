@@ -147,16 +147,15 @@ class Rulebook(object):
         def neighbored_y(y, x):
             return (y > 0 and board_state[y-1][x] != ' ') or (y < 14 and board_state[y+1][x] != ' ')
 
-        if not allow_illegal and not self.word_is_valid(move.word):
-            return -1
-
         assert(move.dir == 'R' or move.dir == 'D')
 
-        total_score = self.score_word(move.coords[0], move.coords[1], move.word, move.dir, board_state)
-
         y, x = move.coords
+
+        total_score = self.score_word(y, x, move.word, move.dir, board_state, move)
+
         for i, tile in enumerate(move.word):
             if move.dir == 'D' and neighbored_x(y+i, x):
+                # As the core word direction is down, we look for ancillary formed words along the X axis
                 word_start, word_end = x, x
                 while word_start > 0 and board_state[y+i][word_start - 1] != ' ':
                     word_start -= 1
@@ -165,10 +164,11 @@ class Rulebook(object):
                 anc_word = board_state[y+i][word_start:x] + tile + board_state[y+i][x+1:word_end+1]
 
                 if allow_illegal or self.word_is_valid(anc_word):
-                    total_score += self.score_word(word_start, x, anc_word, 'R', board_state)
+                    total_score += self.score_word(y+i, word_start, anc_word, 'R', board_state, move)
                 else:
                     return -1
             elif neighbored_y(y, x+i):
+                # As the core word direction is right, we look for ancillary formed words along the Y axis
                 word_start, word_end = y, y
                 while word_start > 0 and board_state[word_start - 1][x+i] != ' ':
                     word_start -= 1
@@ -178,13 +178,13 @@ class Rulebook(object):
                                     for word_y in range(word_start, word_end+1)])
 
                 if allow_illegal or self.word_is_valid(anc_word):
-                    total_score += self.score_word(y, word_start, anc_word, 'R', board_state)
+                    total_score += self.score_word(word_start, x+i, anc_word, 'D', board_state, move)
                 else:
                     return -1
 
         return total_score
 
-    def score_word(self, y, x, word, dir, board_state):
+    def score_word(self, y, x, word, dir, board_state, move):
         """
         Scores a word played starting at coordinates x, y in direction dir.
         :param y: Starting y coordinate
@@ -219,6 +219,8 @@ class Rulebook(object):
             if board_curr_tile != ' ':
                 if board_curr_tile != tile:
                     # The character on the board at this point does not match the tile which should exist in the word.
+                    print(y, x, word, dir)
+                    print(move)
                     raise InvalidPlacementError(word=word, true_tile=board_curr_tile, attempted_tile=tile)
                 else:
                     score += self.tile_scores[tile]

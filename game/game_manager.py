@@ -23,7 +23,7 @@ class GameMaster(object):
         for i in range(human_count):
             self.players.append(HumanPlayer(id=i, init_tiles=self.bag.grab(7)))
         for i in range(ai_count):
-            self.players.append(AIPlayer(id=human_count+i, init_tiles=['Q', 'I', 'R', 'N', 'A', 'E', 'V'], name="AI {}".format(i+1)))
+            self.players.append(AIPlayer(id=human_count+i, init_tiles=self.bag.grab(7), name="AI {}".format(i+1)))
 
     def play_game(self):
         """
@@ -56,6 +56,10 @@ class GameMaster(object):
 
 
 if __name__ == '__main__':
-    gm = GameMaster(ai_count=1)
-    gm.play_game()
-
+    player = AIPlayer(id=0, init_tiles=[c for c in 'QUEENLY'], name="AI {}".format(0))
+    board = Board()
+    board.play_move(player.prompt_move(board.state))
+    print(board)
+    player.receive_tiles([c for c in 'HDIOEPF'])
+    board.play_move(player.prompt_move(board.state))
+    print(board)

@@ -128,11 +128,11 @@ class AIPlayer(Player):
         """
         self.dictionary_root, self.scrabble_dictionary = self.rulebook.generate_dictionary_tree()
 
-    def find_words(self, tiles=None, starting_branch=None, req_tiles=[], pos=0, min_length=2, max_length=15):
+    def find_words(self, tiles=None, starting_branch=None, fixed_tiles=[], pos=0, min_length=2, max_length=15):
         """
         :param tiles: A list of single-characters representing the player's tiles.
         :param starting_branch: The starting branch in the dictionary tree which we'll be exploring
-        :param req_tiles: A list of tuples containing a character and the zero-indexed position in the created word
+        :param fixed_tiles: A list of tuples containing a character and the zero-indexed position in the created word
         in which the tile must occur. For example, if the second letter of the word must be 'A' and the third
         letter of the word must be 'M', this variable would be [('A',1), ('M',2)].
         :param pos: The current position in the word.
@@ -151,8 +151,8 @@ class AIPlayer(Player):
         if starting_branch is None:
             starting_branch = self.dictionary_root
 
-        assert (len(req_tiles) == 1 or
-                all([req_tiles[i][1] < req_tiles[i + 1][1] for i in range(len(req_tiles) - 1)]))
+        assert (len(fixed_tiles) == 1 or
+                all([fixed_tiles[i][1] < fixed_tiles[i + 1][1] for i in range(len(fixed_tiles) - 1)]))
 
         def without(full_list, item):
             """
@@ -167,18 +167,28 @@ class AIPlayer(Player):
                 local_list.remove(item)
             return local_list
 
+        """
+        If the word at our current branch is valid, then we'll return it as a possible valid word, but only if there
+        aren't required tiles upcoming which would directly attach to this word. For example, if we had the word at our
+        current branch 'PIE' with fixed tile ('S', 3), we wouldn't have PIE be a valid word as the word which would
+        actually be formed on the board is PIES, and it's much easier to check for that case now rather than appending
+        trailing tiles to the board once it has been played.
+        """
         if starting_branch['VALID'] and len(starting_branch['WORD']) >= min_length and len(tiles) < len(self.tiles):
-            valid_words = [starting_branch['WORD']]
+            if not fixed_tiles or fixed_tiles[0][1] > len(starting_branch['WORD']):
+                valid_words = [starting_branch['WORD']]
+            else:
+                valid_words = []
         else:
             valid_words = []
 
         # If our current position features a mandated tile, then we check to see if that's a valid entry at this point
         # in the tree
-        if req_tiles and req_tiles[0][1] == pos:
-            if req_tiles[0][0] in starting_branch:
+        if fixed_tiles and fixed_tiles[0][1] == pos:
+            if fixed_tiles[0][0] in starting_branch:
                 valid_words += self.find_words(tiles=tiles,
-                                               starting_branch=starting_branch[req_tiles[0][0]],
-                                               req_tiles=req_tiles[1:],
+                                               starting_branch=starting_branch[fixed_tiles[0][0]],
+                                               fixed_tiles=fixed_tiles[1:],
                                                pos=pos + 1,
                                                min_length=min_length,
                                                max_length=max_length)
@@ -192,7 +202,7 @@ class AIPlayer(Player):
                                                        pos=pos + 1,
                                                        min_length=min_length,
                                                        max_length=max_length,
-                                                       req_tiles=req_tiles)
+                                                       fixed_tiles=fixed_tiles)
                 else:
                     # In the case of blank tiles, we traverse every branch
                     words_with_blanks = []
@@ -203,10 +213,93 @@ class AIPlayer(Player):
                                                                  pos=pos + 1,
                                                                  min_length=min_length,
                                                                  max_length=max_length,
-                                                                 req_tiles=req_tiles)
+                                                                 fixed_tiles=fixed_tiles)
                     words_with_blanks = [word[:pos] + word[pos].lower() + word[pos + 1:] for word in words_with_blanks]
                     valid_words += words_with_blanks
         return valid_words
+
+    def get_move_params(self, coords, direction, board_state):
+        """
+        Asserts that the number of tiles can be placed in the direction dir with the coordinates coords.
+        Returns the (zero indexed) number of tiles until this becomes valid, and the ultimate length of the move.
+        For example, if we're trying to place seven tiles across line '_ _ A _ _ _ _ _ _ _ _ _ _ _ _ ' from the first
+        position, the result would be (2, 8, [(2, A)] as it becomes valid at tile 2 and the maximum number of
+        letters in the result will be six.
+        :param coords: y and x integer coordinates in tuple
+        :param direction: string direction 'D' or 'R' for down or right.
+        :param board_state: The list of strings currently representing the tiles played on the board.
+        :return a tuple containing the minimum word length, maximum word length, and the locations in the word of
+        pre-placed tiles.
+        :rtype tuple (int, int, list)
+        """
+
+        def is_island(y, x):
+            """
+            Checks to see if the given coordinate is an island in scrabble terms, meaning that there is no tile
+            directly above, below, to the left, or to the right of it, though diagonals are of course still valid.
+            :param y: Integer Y coordinate
+            :param x: Integer X coordinate
+            :return: True if the coordinates has no existing tile on any side.
+            """
+            # All first moves will be an island, but we'll of return false so the game can begin.
+            if (y, x) == (7, 7):
+                return False
+
+            min_x, max_x = max(x - 1, 0), min(x + 1, 14)
+            min_y, max_y = max(y - 1, 0), min(y + 1, 14)
+            for near_y in range(min_y, max_y + 1):
+                if board_state[near_y][x] != ' ':
+                    return False
+            for near_x in range(min_x, max_x + 1):
+                if board_state[y][near_x] != ' ':
+                    return False
+            return True
+
+        # TODO: remove assertions used in testing
+        assert (direction == 'D' or direction == 'R')
+
+        start_y, start_x = coords
+        y, x = coords
+        fixed_tiles = []
+        tiles_rem = len(self.tiles)
+
+        tiles_to_validity = -1
+
+        if direction == 'D':
+            """
+            If the direction is down, then we first check that there is no tile played directly above us, as if that is
+            the case then we'd be far better to calculate from that point rather than to allow a move to be formulated
+            here and only later check if it aligns with the leading tile.
+            """
+            if y > 0 and board_state[y-1][x] != ' ':
+                return -1, -1, []
+
+            while y < 15 and (tiles_rem or board_state[y][x] != ' '):
+                if tiles_to_validity == -1:
+                    if not is_island(y, x):
+                        tiles_to_validity = y - start_y + 1
+                if board_state[y][x] == ' ':
+                    tiles_rem -= 1
+                else:
+                    fixed_tiles.append((board_state[y][x], y - start_y))
+                y += 1
+            return tiles_to_validity, (y - start_y), fixed_tiles
+        else:
+            """
+            Similarly, if going right we first check there's no tile to our immediate left. 
+            """
+            if x > 0 and board_state[y][x-1] != ' ':
+                return -1, -1, []
+            while x < 15 and (tiles_rem or board_state[y][x] != ' '):
+                if tiles_to_validity == -1:
+                    if not is_island(y, x):
+                        tiles_to_validity = x - start_x + 1
+                if board_state[y][x] == ' ':
+                    tiles_rem -= 1
+                else:
+                    fixed_tiles.append((board_state[y][x], x - start_x))
+                x += 1
+            return tiles_to_validity, (x - start_x), fixed_tiles
 
     def get_valid_locations(self, board_state):
         """
@@ -216,95 +309,14 @@ class AIPlayer(Player):
 
         MoveParam = namedtuple('MoveParam', 'coords dir min max fixed')
 
-        def move_params_from_coords(coords, direction, num):
-            """
-            Asserts that the number of tiles can be placed in the direction dir with the coordinates coords.
-            Returns the (zero indexed) number of tiles until this becomes valid, and the ultimate length of the move.
-            For example, if we're trying to place five tiles across line '_ _ A _ _ _ _ _ _ _ _ _ _ _ _ ' from the first
-            position, the result would be (2, 6, [(2, A)] as it becomes valid at tile 2 and the maximum number of
-            letters in the result will be six.
-            :param coords: y and x integer coordinates in tuple
-            :param direction: string direction 'D' or 'R' for down or right.
-            :param num: The number of tiles being placed.
-            :return a tuple containing the minimum word length, maximum word length, and the locations in the word of
-            preplaced tiles.
-            :rtype tuple (int, int, list)
-            """
-
-            def is_island(y, x):
-                """
-                Checks to see if the given coordinate is an island in scrabble terms, meaning that there is no tile
-                directly above, below, to the left, or to the right of it, though diagonals are of course still valid.
-                :param y: Integer Y coordinate
-                :param x: Integer X coordinate
-                :return: True if the coordinates has no existing tile on any side.
-                """
-                # All first moves will be an island, but we'll of return false so the game can begin.
-                if (y, x) == (7, 7):
-                    return False
-
-                min_x, max_x = max(x - 1, 0), min(x + 1, 14)
-                min_y, max_y = max(y - 1, 0), min(y + 1, 14)
-                for near_y in range(min_y, max_y + 1):
-                    if board_state[near_y][x] != ' ':
-                        return False
-                for near_x in range(min_x, max_x + 1):
-                    if board_state[y][near_x] != ' ':
-                        return False
-                return True
-
-            # TODO: remove assertions used in testing
-            assert (direction == 'D' or direction == 'R')
-            start_y, start_x = coords
-            y, x = coords
-            fixed_tiles = []
-            tiles_rem = num
-
-            tiles_to_validity = -1
-
-            if direction == 'D':
-                while tiles_rem:
-                    if y >= 15:
-                        return tiles_to_validity, y - start_y, fixed_tiles
-                    if tiles_to_validity == -1:
-                        if not is_island(y, x):
-                            tiles_to_validity = y - start_y + 1
-                    if board_state[y][x] == ' ':
-                        tiles_rem -= 1
-                    else:
-                        fixed_tiles.append((board_state[y][x], y - start_y))
-                    y += 1
-                return tiles_to_validity, (y - start_y + 1), fixed_tiles
-            else:
-                while tiles_rem:
-                    if x >= 15:
-                        return tiles_to_validity, x - start_x, fixed_tiles
-                    if tiles_to_validity == -1:
-                        if not is_island(y, x):
-                            tiles_to_validity = x - start_x + 1
-                    if board_state[y][x] == ' ':
-                        tiles_rem -= 1
-                    else:
-                        fixed_tiles.append((board_state[y][x], x - start_x))
-                    x += 1
-                return tiles_to_validity, (x - start_x + 1), fixed_tiles
-
         valid_move_params = []
-        num = len(self.tiles)
 
-        # Check moves for the down direction
         for y in range(15):
             for x in range(15):
-                min_len, max_len, fixed_tiles = move_params_from_coords((y, x), 'D', num)
-                if min_len != -1:
-                    valid_move_params.append(MoveParam((y, x), 'D', min_len, max_len, fixed_tiles))
-
-        # Check moves for the right direction.
-        for y in range(15):
-            for x in range(15):
-                min_len, max_len, fixed_tiles = move_params_from_coords((y, x), 'R', num)
-                if min_len != -1:
-                    valid_move_params.append(MoveParam((y, x), 'R', min_len, max_len, fixed_tiles))
+                for direction in ['D', 'R']:
+                    min_len, max_len, fixed_tiles = self.get_move_params((y, x), direction, board_state)
+                    if min_len != -1:
+                        valid_move_params.append(MoveParam((y, x), direction, min_len, max_len, fixed_tiles))
 
         return valid_move_params
 
@@ -325,9 +337,7 @@ class AIPlayer(Player):
 
         valid_moves = []
         for vl in valid_locations:
-            if vl.coords == (0, 7):
-                print(vl)
-            valid_words = self.find_words(req_tiles=vl.fixed, min_length=vl.min, max_length=vl.max)
+            valid_words = self.find_words(fixed_tiles=vl.fixed, min_length=max(2, vl.min), max_length=vl.max)
             valid_moves += [Move(vl.coords, vl.dir, word) for word in valid_words]
 
         # Now we score our prospective moves, and remove the invalid ones.
@@ -338,7 +348,6 @@ class AIPlayer(Player):
 
         if debug_mode:
             print(self.tiles)
-            print('WAZZZIII')
             top_scores = move_scores[:3]
             for move, score in top_scores:
                 print("Word {} for {} points, from coords {} {}".format(move.word, score, move.coords[0],

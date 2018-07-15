@@ -38,10 +38,5 @@ class TestRulebook(TestCase):
         test_move = Move((2, 1), 'R', 'ZXVY')
         self.assertEqual(rulebook.score_move(test_move, test_board), -1)
 
-    def score_word(self):
-        # Checks that the center tile is being interpreted correctly.
-        blank_board = [''.join([' ' for _ in range(15)]) for _ in range(15)]
-
-
 
 
