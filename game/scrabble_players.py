@@ -1,6 +1,6 @@
 from collections import namedtuple
-from game.scrabble_box import Rulebook
-from game.exceptions import InvalidPlacementError
+from scrabble_box import Rulebook
+from exceptions import InvalidPlacementError
 
 import sys
 
@@ -107,54 +107,76 @@ class HumanPlayer(Player):
     def __init__(self, id, init_tiles, name=None):
         Player.__init__(self, id, init_tiles, name)
 
-    def check_exchange_validity(self, discard_tiles):
-        """
-        Checks that the tiles desired to be exchanged exist on the player's rack, and so the exchange is valid.
-        :param discard_tiles: A string of the tiles to be exchanged
-        :return: True if valid, False otherwise.
-        """
-        rack = self.tiles.copy()
-        for tile in discard_tiles:
-            try:
-                rack.remove(tile)
-            except ValueError:
-                return False
-        return True
-
     def get_move(self, board_state):
         """
         :param board_state: The current board
         :return: A string representing the player's desired move. ALl error checking regarding the legality of this
                 move and string integrity is handled by the game-master.
         """
+
+        def tiles_present_for_move(move):
+            """
+            Returns true if the human player has all of the tiles required to perform this action.
+            :param move: namedtuple consisting of coordinates, direction, and word being played.
+            :return: True if tiles required contained in self.tiles, false otherwise.
+            """
+            tile_copy = self.tiles.copy()
+            is_d, is_r = (move.dir == 'D', move.dir == 'R')
+            y, x = move.coords
+
+            for i, tile in enumerate(move.word):
+                # If the board is blank at this point, remove the tile from our tiles.
+                if move.coords == (-2, -2) or board_state[y + i * is_d][x + i * is_r] == ' ':
+                    if tile.islower():
+                        tile = '?'
+                    if tile in tile_copy:
+                        tile_copy.remove(tile)
+                    else:
+                        return False
+            return True
+
         Move = namedtuple('move', 'coords dir word')
+        print("Tiles: [" + str(self.tiles) + "]")
         while True:
             player_move = input("Action: ")
             move_segments = player_move.split(' ')
 
-            if len(move_segments) == 1 and move_segments[0] == 'skip':
-                return Move((-1, -1), '', '')
+            # If only one word was entered, we check to see if it's one of the exit two valid single-word commands.
+            if len(move_segments) == 1:
+                if move_segments[0] == 'skip':
+                    return Move((-1, -1), '', '')
+                elif move_segments[0] == 'quit':
+                    return Move((-3, -3), '', '')
+            # The only two-segment command which is valid is exchanging tiles.
             elif len(move_segments) == 2 and move_segments[0] == 'exchange':
-                if self.check_exchange_validity(move_segments[1]):
+                if tiles_present_for_move(Move((-2, -2), '', move_segments[1])):
                     return Move((-2, -2), '', move_segments[1])
+                else:
+                    print("Tiles for this exchange are not present in your rack.")
+            # Otherwise, we assume this is a regular move and attempt to process it.
             elif len(move_segments) == 4:
                 x, y, dir, word = move_segments
                 move = Move((int(y, 16), int(x, 16)), dir, word)
                 if move.coords[0] < 0 or move.coords[0] < 0 or move.coords[1] > 14 or move.coords[1] > 14:
                     print('Moves must be within the boundaries 0 and d (d being hexidecimal 14)')
-                try:
-                    move_score = self.rulebook.score_move(move, board_state)
-                    if move_score < 0:
-                        print('This word, or an ancillary word formed, is invalid.')
-                    else:
-                        return move
-                except InvalidPlacementError:
-                    print(InvalidPlacementError)
-            else:
-                print('Invalid Input.\n Moves must comprise of x coordinate, y coordinate, direction D or R, and the \
-                        word to be played. To skip, type "skip", or to exchange tiles, type "exchange" followed by \
-                        the tiles you wish to exchange'
-                     )
+                else:
+                    try:
+                        # Check that we have all of the tiles we're attempting to play.
+                        if not tiles_present_for_move(move):
+                            print("The player's tile rack does not contain the tiles needed for this move.")
+                        else:
+                            move_score = self.rulebook.score_move(move, board_state)
+                            if move_score < 0:
+                                print('This word, or an ancillary word formed, is invalid.')
+                            else:
+                                return move
+                    except InvalidPlacementError:
+                        print(InvalidPlacementError)
+
+            print("Moves must comprised of x coordinate, y coordinate, direction D or R, and the word to be played." 
+                "To skip, type 'skip', or to exchange tiles, type 'exchange' followed by the tiles you wish to "
+                "exchange in one word, such as exchange 'AABC'"
+                )
 
 
 

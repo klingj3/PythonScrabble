@@ -1,6 +1,11 @@
-from game.scrabble_box import Board, Rulebook, TileBag
-from game.scrabble_players import HumanPlayer, AIPlayer
+from colorama import init, Fore, Back, Style
+from scrabble_box import Board, Rulebook, TileBag
+from scrabble_players import HumanPlayer, AIPlayer
 
+import sys
+
+init()
+fore_colors = [Fore.RED, Fore.GREEN, Fore.YELLOW, Fore.BLUE, Fore.MAGENTA, Fore.CYAN, Fore.WHITE]
 
 class GameMaster(object):
     """
@@ -43,16 +48,19 @@ class GameMaster(object):
             for i, player in enumerate(self.players):
 
                 if isinstance(player, HumanPlayer):
+                    self.print_scoresheet()
                     print(self.board)
-                    for j, opponent in enumerate(self.players):
-                        if j != i:
-                            print("{}: {} pts".format(opponent.name, self.player_scores[i]))
-                    print("{}: {} pts -- {}".format(player.name, self.player_scores[i], player.tiles))
 
                 move = player.prompt_move(self.board.state)
 
                 if move.coords == (-1, -1):
                     consecutive_skips += 1
+                elif move.coords == (-2, -2):
+                    print("Player exchanges {} tiles.".format(len(move.word)))
+                    player.receive_tiles(self.bag.grab(len(move.word)))
+                elif move.coords == (-3, -3):
+                    print("Player {} ends the game.".format(player.name))
+                    exit(0)
                 else:
                     consecutive_skips = 0
 
@@ -70,7 +78,24 @@ class GameMaster(object):
         for i, player in enumerate(self.players):
             print("{}: {} pts".format(player.name, self.player_scores[i]))
 
+    def print_scoresheet(self):
+        """
+        Prints the scores of all players, with the current player being last.
+        :param player:
+        :return:
+        """
+        print(Style.BRIGHT)
+        for i, opponent in enumerate(self.players):
+            print("{}: {} pts".format(opponent.name, self.player_scores[i]))
+        print(Style.RESET_ALL)
+
 
 if __name__ == '__main__':
-    gm = GameMaster(human_count=1, ai_count=1)
-    gm.play_game()
+    if len(sys.argv) == 1:
+        gm = GameMaster(human_count=1, ai_count=1)
+        gm.play_game()
+    else:
+        human_count = int(sys.argv[1])
+        ai_count = int(sys.argv[2])
+        gm = GameMaster(human_count, ai_count)
+        gm.play_game()

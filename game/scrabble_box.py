@@ -2,20 +2,19 @@
 This contains the elements of the scrabble box: the board, the tiles, the rule book, and the dictionary
 """
 from collections import Counter
-from game.exceptions import InvalidCoordinatesError, InvalidPlacementError, InvalidWordError, OutOfBoardError
+from colorama import init, Fore, Back, Style
+from exceptions import InvalidCoordinatesError, InvalidPlacementError, InvalidWordError, OutOfBoardError
 
 import json
 import random
 import sys
 
-# TODO: Remove debugs once the final tests are completed.
-debug_mode = False
-
+init()
 
 class Board(object):
     def __init__(self):
         # The special tiles.
-        self.board_special_tiles = [
+        self.special_tiles = [
             'W  l   W   l  W',
             ' w   L   L   w ',
             '  w   l l   w  ',
@@ -39,11 +38,28 @@ class Board(object):
         """
         :return: A board showing the currently played tiles.
         """
+
+        reset = Style.RESET_ALL
+        special_tile_color = {
+                            ' ': reset,
+                            'W': Back.RED + Fore.WHITE,
+                            'w': Back.MAGENTA + Fore.WHITE,
+                            'L': Back.BLUE + Fore.WHITE,
+                            'l': Back.CYAN + Fore.WHITE,
+                            '*': Back.MAGENTA + Fore.WHITE,
+                            }
+
         string_rep = "   " + ' '.join([str(hex(x))[-1] for x in range(15)]) + "\n"
         for i in range(15):
-            # TODO: USE COLOR TOOLS TO MAKE DISPLAY SPECIAL TILES DIFFERENT AND MAKE THEM DIFFERENT COLOR
-            string_rep += str(hex(i))[-1] + '  ' + ' '.join([self.state[i][j] for j in range(15)]) + '\n'
-        return string_rep
+            line = ''
+            for j, tile in enumerate(self.state[i]):
+                if tile != ' ':
+                    line += Back.WHITE + Fore.BLACK + tile
+                else:
+                    line += special_tile_color[self.special_tiles[i][j]] + self.special_tiles[i][j] + reset
+                line += ' '
+            string_rep += str(hex(i))[-1] + '  ' + line + reset + '\n'
+        return string_rep + reset
 
     def play_move(self, move):
         y, x = move.coords
@@ -84,7 +100,7 @@ class Rulebook(object):
     def generate_dictionary_tree():
         """
         Rather than having a huge list to traverse through, or a set to check against, the dictionary of this agent
-        is stored through a series of nested dictionaries, which work like a tree with easier indexing. Each branch of
+        is stoMAGENTA through a series of nested dictionaries, which work like a tree with easier indexing. Each branch of
         this tree contains at least two values in its initial dictionary, WORD which is the word up to that point in
         the tree (a little expensive on memory, but the whole dictionary isn't so large by modern standards), and VALID
         which is if the current word is valid or not. For example, the word 'MAZE' would be found by traversing through
@@ -141,10 +157,10 @@ class Rulebook(object):
         :rtype int
         """
 
-        def neighbored_x(y, x):
+        def neighboMAGENTA_x(y, x):
             return (x > 0 and board_state[y][x-1] != ' ') or (x < 14 and board_state[y][x+1] != ' ')
 
-        def neighbored_y(y, x):
+        def neighboMAGENTA_y(y, x):
             return (y > 0 and board_state[y-1][x] != ' ') or (y < 14 and board_state[y+1][x] != ' ')
 
         assert(move.dir == 'R' or move.dir == 'D')
@@ -154,7 +170,7 @@ class Rulebook(object):
         total_score = self.score_word(y, x, move.dir, move.word, board_state)
 
         for i, tile in enumerate(move.word):
-            if move.dir == 'D' and neighbored_x(y+i, x):
+            if move.dir == 'D' and neighboMAGENTA_x(y+i, x):
                 # We only care if this is a fresh tile
                 if board_state[y+i][x] == ' ':
                     # As the core word direction is down, we look for ancillary formed words along the X axis
@@ -169,7 +185,7 @@ class Rulebook(object):
                         total_score += self.score_word(y+i, word_start, 'R', anc_word, board_state)
                     else:
                         return -1
-            elif move.dir == 'R' and neighbored_y(y, x+i):
+            elif move.dir == 'R' and neighboMAGENTA_y(y, x+i):
                 # We only care if this is a fresh tile
                 if board_state[y][x+i] == ' ':
                     # As the core word direction is right, we look for ancillary formed words along the Y axis

@@ -1,5 +1,10 @@
 # PyScrabble
-Yes, this another one of those projects that starts with Py, but what can I say, naming things isn't a strong suit.
+
+#### Requirements
+
+The only nonstandard package used in this project is Colorama, which is used for coloring the board in human
+v player games. To install, of course just type
+`pip3 install colorama`
 
 ## Overview
 I love scrabble, but I'm continuously disappointed by the quality of online scrabble games, both directly and in the
@@ -11,10 +16,14 @@ an alternate vector through which to play scrabble, this will be an exercise in 
 an algorithmic challenge as each possible move in scrabble has, including invalid options, a minimum of over a million
 possible moves.
 
-### Status 07/06
-The level I (detailed below) agent is almost finished, as it can find all possible words generated on the board 
-from its tiles and safely check the validity of the various options. Once it gains the additional capacity to score
-these move options, it will be largely complete with the possible exception of a few end-game edge cases.
+### Status 07/16
+The level I (detailed below) agent is finished, as is all of the stylistic attributes for playing in the command line,
+and all of the human commands can be interpreted correctly. To run ths game, simply traverse to the game file and run
+game_manager.py, with two arguments for the number of human players and number of AI players. For example, to start
+a game with just a human vs one AI opponent, type
+`python3 game_manager.py 1 1`
+
+[A game between two AI](https://i.imgur.com/Fwfxnv9.png)
 
 ## AI Development Plans
 The crux of this little project, and AI opponent to play against in games of scrabble. Though it will start out
@@ -23,10 +32,20 @@ any competitor a decent challenge and the opportunity to learn new words and scr
 
 Here are the features to be implemented, at their various levels.
 
-### I: Basic functionality
-At this level, the AI will have a robust dictionary loaded, and will play the best possible moves after
-brute-forcing the many available moves and choosing the best option. Though basic, this option will be nearly
-unbeatable and probably not fun for anybody.
+### I: Basic functionality - Completed!
+At this level, the AI will have a complete scrabble dictionary loaded, and will play the best possible moves after
+evaluating all legal moves and choosing the move with the best score, with no thoughts as to broader strategy. 
+The human player will be able to play against this agent in the command line, with the following commands.
+
+`quit` quits the game
+
+`skip` skips a turn
+
+`exchange LETTERS` exchanges the tiles in the string (here letters) at the expense of a turn.
+
+`7 7 R PYTHON` plays the word in the direction `R` for right (or `D` for down), starting at x, y, coordinates `7, 7`
+
+Alternatively, the user can just instruct games of AI vs AI to see the interesting words and moves they used.
 
 ### II: General Difficulty Adaptivity
 At this level, we will run an extensive count of all words appearing in both wikipedia and the scrabble dictionary
