@@ -2,19 +2,13 @@
 
 #### Requirements
 
-The only nonstandard package used in this project is Colorama, which is used for coloring the board in human
-v player games. To install, of course just type
+Python 3.5 or higher. The only nonstandard package used in this project is Colorama, which is used for coloring the board in human v. player games. To install, of course just type
 `pip3 install colorama`
 
 ## Overview
-I love scrabble, but I'm continuously disappointed by the quality of online scrabble games, both directly and in the
-form of their opponents. A lot of them are slow, or require you to drag each tile on the board individually, or tell
-you if a word you're trying to play is in the dictionary which defeats a key part of the game. 
-This will be a command-line version (at least initially) which can be played much more quickly, and allow players to 
-play invalid words  with all of the risk that contains. More than just providing 
-an alternate vector through which to play scrabble, this will be an exercise in a unique brand of game AI, as well as
-an algorithmic challenge as each possible move in scrabble has, including invalid options, a minimum of over a million
-possible moves.
+I love scrabble, but I'm continuously disappointed by the quality of online scrabble games. A lot of them are slow, or require you to drag each tile on the board individually, or tell you if a word you're trying to play is in the dictionary which defeats a key part of the game, or have different two letter words than in the actual scrabble dictionary. This project is a command-line version of scrabble which can be played much more quickly than most web versions, and have a robust and reasonably challenging AI opponent (or opponents) to play against.
+
+More than just providing  an alternate vector through which to play scrabble, this will be an exercise in a unique brand of game AI, as well as an algorithmic challenge as each player in scrabble has, including invalid options, a minimum of over a million possible moves at each turn, though there can be several billion moves available with certain held tiles and board configurations.
 
 ### Status 07/16
 The level I (detailed below) agent is finished, as is all of the stylistic attributes for playing in the command line,
@@ -25,10 +19,10 @@ a game with just a human vs one AI opponent, type
 
 ![A game between two AI](https://i.imgur.com/Fwfxnv9.png)
 
+While the command-line does have its advantages, I'm currently working on building a Flask app to play this game in a web browser in a way that's more than a little easier to see. 
+
 ## AI Development Plans
-The crux of this little project, and AI opponent to play against in games of scrabble. Though it will start out
-as the most barebones of opponents, the ultimate goal is to create a relatively dynamic opponent who will offer
-any competitor a decent challenge and the opportunity to learn new words and scrabble techniques.
+Though the AI will start out as the most barebones of opponents, the ultimate goal is to create a relatively dynamic opponent who will offer any competitor a decent challenge and the opportunity to learn new words and scrabble techniques.
 
 Here are the features to be implemented, at their various levels.
 
@@ -59,6 +53,8 @@ some insight as to which archaic words are more common.
 Once we have this loose understanding of the difficulty associated with each word, players will be able to either
 directly select a difficulty option on a scale from 1 to 10, or put in their Reddit usernames which can act as
 a blueprint of this player's vocabulary to provide insight as to which level would be best for the player.
+
+In addition, this stage will also add definitions to appear when an opponent plays a turn, so players can build their game and vocabulary.
 
 ### III: Advanced Strategy and Word Placement
 This is where the AI will begin to get into the territory of machine learning, and this will be divided into two
