@@ -72,7 +72,6 @@ class TestAIPlayer(TestCase):
         found_words = set(player.find_words(min_length=1, max_length=8, fixed_tiles=[('S', 4)]))
         self.assertTrue('PLEA' not in found_words and 'PLEAS' in found_words)
 
-
     def test_get_move_params(self):
         player = AIPlayer(id=1, init_tiles=['A', 'P', 'P', 'L', 'E', '?', 'Z'])
         board_state = [' '*15 for _ in range(15)]
@@ -88,7 +87,7 @@ class TestAIPlayer(TestCase):
         third tile in the eventual word must be S if we start from the provided coordinates.
         """
         move_param = player.get_move_params((7, 5), 'R', board_state)
-        self.assertEqual(move_param, (2, 8, [('S', 2)]))
+        self.assertEqual(move_param, (2, [('S', 2)]))
 
         """
         We now check that if we are starting our move from this center tile with an S on it, it is correctly labeled
@@ -96,14 +95,14 @@ class TestAIPlayer(TestCase):
         played word is 8 tiles. 
         """
         move_param = player.get_move_params((7, 7), 'R', board_state)
-        self.assertEqual(move_param, (1, 8, [('S', 0)]))
+        self.assertEqual(move_param, (1, [('S', 0)]))
 
         """
         Check that if the board letters trail the seven played tiles, we correctly assert not only the validity of this
         move, but that the maximum length of a word resulting from this move is 8 tiles.
         """
         move_param = player.get_move_params((7, 0), 'R', board_state)
-        self.assertEqual(move_param, (7, 8, [('S', 7)]))
+        self.assertEqual(move_param, (7, [('S', 7)]))
 
         """
         Having asserted that this works for single letters, we'll provide and additional check for longer strings.
@@ -112,7 +111,7 @@ class TestAIPlayer(TestCase):
         assert(len(board_state[7]) == 15)
         presumed_fixed = [(letter, index+1) for index, letter in enumerate(string.ascii_uppercase[:14])]
         move_param = player.get_move_params((7, 0), 'R', board_state)
-        self.assertEqual(move_param, (1, 15, presumed_fixed))
+        self.assertEqual(move_param, (1, presumed_fixed))
 
         """
         We also check for interspaced tiles, such as a board with "  X  A B  ...".
@@ -121,14 +120,14 @@ class TestAIPlayer(TestCase):
         presumed_fixed = [(letter, index+1) for index, letter in enumerate(string.ascii_uppercase[:14])
                           if index % 2 == 0]
         move_param = player.get_move_params((7, 0), 'R', board_state)
-        self.assertEqual(move_param, (1, 14, presumed_fixed))
+        self.assertEqual(move_param, (1, presumed_fixed))
 
         """
         Check that words neighboring, but not intersecting, existing words are treated as valid. 
         """
         board_state[7] = ' '*7 + 'S' + ' '*7
         move_param = player.get_move_params((6, 7), 'R', board_state)
-        self.assertEqual(move_param, (1, 7, []))
+        self.assertEqual(move_param, (1, []))
 
         """
         Lastly, check for both cases where early legality is determined by a move neighboring an existing tile,
@@ -137,5 +136,4 @@ class TestAIPlayer(TestCase):
         board_state[7] = ' '*7 + 'S' + ' '*7
         board_state[6] = ' '*13 + 'NG'
         move_param = player.get_move_params((6, 7), 'R', board_state)
-        self.assertEqual(move_param, (1, 8, [('N', 6), ('G', 7)]))
-
+        self.assertEqual(move_param, (1, [('N', 6), ('G', 7)]))

@@ -9,9 +9,10 @@ os.chdir("../")
 
 rulebook = Rulebook()
 
+
 class TestRulebook(TestCase):
     def test_score_moves(self):
-        # Test that moves are recognized as being valid.
+        "Test that moves are recognized as being valid."
 
         blank_board = [''.join([' ' for _ in range(15)]) for _ in range(15)]
         Move = namedtuple('move', 'coords dir word')
@@ -38,5 +39,22 @@ class TestRulebook(TestCase):
         test_move = Move((2, 1), 'R', 'ZXVY')
         self.assertEqual(rulebook.score_move(test_move, test_board), -1)
 
+        """
+        Test scores are being calculated appropriately.
+        """
+        # Check an easy move across the starting position
+        test_move = Move((7, 7), 'R', 'QI')
+        self.assertEqual(rulebook.score_move(test_move, test_board), 22)
+        test_board[8] = ' '*7 + 'I' + ' '*7
+
+        # Check that doubles are being properly applied to ancillary words
+        test_move = Move((7, 7), 'R', 'QI')
+        self.assertEqual(rulebook.score_move(test_move, test_board), 44)
+
+        # Check that doubles are stacking appropriately
+        test_board = blank_board.copy()
+        test_board[14] = ' ' + 'U' + ' '*13
+        test_move = Move((14, 0), 'R', 'QUINTETS')
+        self.assertEqual(rulebook.score_move(test_move, test_board), 50+18*9)
 
 

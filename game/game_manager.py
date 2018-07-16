@@ -24,6 +24,7 @@ class GameMaster(object):
             self.players.append(HumanPlayer(id=i, init_tiles=self.bag.grab(7)))
         for i in range(ai_count):
             self.players.append(AIPlayer(id=human_count+i, init_tiles=self.bag.grab(7), name="AI {}".format(i+1)))
+        self.player_scores = [0 for _ in range(len(self.players))]
 
     def play_game(self):
         """
@@ -38,23 +39,38 @@ class GameMaster(object):
 
         # The game ends when oen player has used all of their tiles, or if everyone skips for two turns because nothing
         # can be placed. (This is very unlikely, but must be included as an edge case.
-        i = 0
-        while consecutive_skips < 2*player_count or min([len(player.tiles()) for player in self.players]) == 0:
-            for player in self.players:
-                # On each player's turn we'll print the board, the scores, and the active player's tiles.
-                print('TURN: {}'.format(player.name))
+        while consecutive_skips < 2*player_count and min([len(player.tiles) for player in self.players]) > 0:
+            for i, player in enumerate(self.players):
+
+                if isinstance(player, HumanPlayer):
+                    print(self.board)
+                    for j, opponent in enumerate(self.players):
+                        if j != i:
+                            print("{}: {} pts".format(opponent.name, self.player_scores[i]))
+                    print("{}: {} pts -- {}".format(player.name, self.player_scores[i], player.tiles))
 
                 move = player.prompt_move(self.board.state)
 
-                # Place this move on the board.
-                self.board.play_move(move)
+                if move.coords == (-1, -1):
+                    consecutive_skips += 1
+                else:
+                    consecutive_skips = 0
 
-                num_new_tiles = 7 - len(player.tiles)
-                player.receive_tiles(self.bag.grab(num_new_tiles))
+                    self.player_scores[i] += self.rulebook.score_move(move, self.board.state)
 
-                print(self.board)
+                    # Place this move on the board.
+                    self.board.play_move(move)
+                    num_new_tiles = 7 - len(player.tiles)
+                    player.receive_tiles(self.bag.grab(num_new_tiles))
+
+                    if len(player.tiles) == 0:
+                        break
+
+        print(self.board)
+        for i, player in enumerate(self.players):
+            print("{}: {} pts".format(player.name, self.player_scores[i]))
 
 
 if __name__ == '__main__':
-    gm = GameMaster(ai_count=1)
+    gm = GameMaster(human_count=1, ai_count=1)
     gm.play_game()

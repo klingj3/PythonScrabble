@@ -151,7 +151,7 @@ class Rulebook(object):
 
         y, x = move.coords
 
-        total_score = self.score_word(y, x, move.word, move.dir, board_state, move)
+        total_score = self.score_word(y, x, move.dir, move.word, board_state)
 
         for i, tile in enumerate(move.word):
             if move.dir == 'D' and neighbored_x(y+i, x):
@@ -166,7 +166,7 @@ class Rulebook(object):
                     anc_word = board_state[y+i][word_start:x] + tile + board_state[y+i][x+1:word_end+1]
 
                     if allow_illegal or self.word_is_valid(anc_word):
-                        total_score += self.score_word(y+i, word_start, anc_word, 'R', board_state, move)
+                        total_score += self.score_word(y+i, word_start, 'R', anc_word, board_state)
                     else:
                         return -1
             elif move.dir == 'R' and neighbored_y(y, x+i):
@@ -182,13 +182,13 @@ class Rulebook(object):
                                         for word_y in range(word_start, word_end+1)])
 
                     if allow_illegal or self.word_is_valid(anc_word):
-                        total_score += self.score_word(word_start, x+i, anc_word, 'D', board_state, move)
+                        total_score += self.score_word(word_start, x+i, 'D', anc_word, board_state)
                     else:
                         return -1
 
         return total_score
 
-    def score_word(self, y, x, word, dir, board_state, move):
+    def score_word(self, y, x, dir, word, board_state, debug_mode=False):
         """
         Scores a word played starting at coordinates x, y in direction dir.
         :param y: Starting y coordinate
@@ -223,8 +223,6 @@ class Rulebook(object):
             if board_curr_tile != ' ':
                 if board_curr_tile != tile and not (board_curr_tile.islower() and tile == '?'):
                     # The character on the board at this point does not match the tile which should exist in the word.
-                    print(y, x, word, dir)
-                    print(move)
                     raise InvalidPlacementError(word=word, true_tile=board_curr_tile, attempted_tile=tile)
                 else:
                     score += self.tile_scores[tile]
@@ -241,11 +239,13 @@ class Rulebook(object):
                     elif spec_tile == 'L':
                         score += self.tile_scores[tile]*3
                     else:
+                        score += self.tile_scores[tile]
                         # Otherwise, tile is a word multiplier.
                         if spec_tile == 'W':
                             word_mul *= 3
                         else:
                             word_mul *= 2
+
         score *= word_mul
         if player_tiles_used == 7:
             score += 50

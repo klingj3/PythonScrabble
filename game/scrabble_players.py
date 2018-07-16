@@ -1,11 +1,11 @@
 from collections import namedtuple
 from game.scrabble_box import Rulebook
+from game.exceptions import InvalidPlacementError
 
 import sys
 
 # TODO: REMOVE DEBUG STATEMENTS
-debug_mode = True
-
+debug_mode = False
 
 class Player(object):
     def __init__(self, id, init_tiles, name=None):
@@ -25,7 +25,8 @@ class Player(object):
         self.score_hist = []
         self.word_hist = []
         self.tiles = init_tiles
-        # assert(len(self.tiles) == 7)
+        # The rulebook for scoring moves and other similar functions
+        self.rulebook = Rulebook()
 
     def __str__(self):
         return self.name
@@ -46,20 +47,28 @@ class Player(object):
 
         def remove_used_tiles(move):
             coords, word, dir = move.coords, move.word, move.dir
-            is_d, is_r = (dir == 'D', dir == 'R')
-            y, x = coords
-            for i, tile in enumerate(word):
-                # If the board is blank at this point, remove the tile from our tiles.
-                if board_state[y + i * is_d][x + i * is_r] == ' ':
-                    if tile.islower():
-                        tile = '?'
+
+            # If this is an exchange move, then we don't need to check the contents of the board.
+            if coords == (-2, -2):
+                for tile in move.word:
                     self.tiles.remove(tile)
+            else:
+                is_d, is_r = (dir == 'D', dir == 'R')
+                y, x = coords
+                for i, tile in enumerate(word):
+                    # If the board is blank at this point, remove the tile from our tiles.
+                    if board_state[y + i * is_d][x + i * is_r] == ' ':
+                        if tile.islower():
+                            tile = '?'
+                        self.tiles.remove(tile)
 
         # Get the next move
         move = self.get_move(board_state)
 
-        # Remove the tiles from the bag.
-        remove_used_tiles(move)
+        # Check for the skip signal
+        if move.coords != (-1, -1):
+            # Remove the tiles from the bag.
+            remove_used_tiles(move)
 
         return move
 
@@ -98,13 +107,55 @@ class HumanPlayer(Player):
     def __init__(self, id, init_tiles, name=None):
         Player.__init__(self, id, init_tiles, name)
 
+    def check_exchange_validity(self, discard_tiles):
+        """
+        Checks that the tiles desired to be exchanged exist on the player's rack, and so the exchange is valid.
+        :param discard_tiles: A string of the tiles to be exchanged
+        :return: True if valid, False otherwise.
+        """
+        rack = self.tiles.copy()
+        for tile in discard_tiles:
+            try:
+                rack.remove(tile)
+            except ValueError:
+                return False
+        return True
+
     def get_move(self, board_state):
         """
         :param board_state: The current board
         :return: A string representing the player's desired move. ALl error checking regarding the legality of this
                 move and string integrity is handled by the game-master.
         """
-        return input("Action: ")
+        Move = namedtuple('move', 'coords dir word')
+        while True:
+            player_move = input("Action: ")
+            move_segments = player_move.split(' ')
+
+            if len(move_segments) == 1 and move_segments[0] == 'skip':
+                return Move((-1, -1), '', '')
+            elif len(move_segments) == 2 and move_segments[0] == 'exchange':
+                if self.check_exchange_validity(move_segments[1]):
+                    return Move((-2, -2), '', move_segments[1])
+            elif len(move_segments) == 4:
+                x, y, dir, word = move_segments
+                move = Move((int(y, 16), int(x, 16)), dir, word)
+                if move.coords[0] < 0 or move.coords[0] < 0 or move.coords[1] > 14 or move.coords[1] > 14:
+                    print('Moves must be within the boundaries 0 and d (d being hexidecimal 14)')
+                try:
+                    move_score = self.rulebook.score_move(move, board_state)
+                    if move_score < 0:
+                        print('This word, or an ancillary word formed, is invalid.')
+                    else:
+                        return move
+                except InvalidPlacementError:
+                    print(InvalidPlacementError)
+            else:
+                print('Invalid Input.\n Moves must comprise of x coordinate, y coordinate, direction D or R, and the \
+                        word to be played. To skip, type "skip", or to exchange tiles, type "exchange" followed by \
+                        the tiles you wish to exchange'
+                     )
+
 
 
 class AIPlayer(Player):
@@ -115,9 +166,6 @@ class AIPlayer(Player):
     def __init__(self, id, init_tiles, name=None):
         # Call the default constructor to set name and tiles
         Player.__init__(self, id, init_tiles, name="AI {}".format(id))
-
-        # The rulebook for scoring moves and other similar functions
-        self.rulebook = Rulebook()
 
         # Build our scrabble dictionary, and the tree for quickly finding words in this dictionary
         """
@@ -349,12 +397,10 @@ class AIPlayer(Player):
 
         move_scores = sorted(move_scores, key=lambda x: x[1], reverse=True)
 
-        if debug_mode:
-            print(self.tiles)
-            top_scores = move_scores[:3]
-            for move, score in top_scores:
-                print("Word {} for {} points, from coords {} {}".format(move.word, score, move.coords[0],
-                                                                        move.coords[1]))
-            sys.stdout.flush()
-        move, score = move_scores[0]
+        if move_scores:
+            move = move_scores[0][0]
+        else:
+            # If no moves are available, we send the skip signal which is coordinates of -1, -1
+            move = Move((-1, -1), '', '')
+
         return move
