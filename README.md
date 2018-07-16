@@ -23,7 +23,7 @@ game_manager.py, with two arguments for the number of human players and number o
 a game with just a human vs one AI opponent, type
 `python3 game_manager.py 1 1`
 
-[A game between two AI](https://i.imgur.com/Fwfxnv9.png)
+![A game between two AI](https://i.imgur.com/Fwfxnv9.png)
 
 ## AI Development Plans
 The crux of this little project, and AI opponent to play against in games of scrabble. Though it will start out
