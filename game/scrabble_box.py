@@ -126,7 +126,7 @@ class Rulebook(object):
             # Otherwise, we load this non-standard dictionary and build a tree around it.
             with open(dict_path, 'r') as infile:
                 # We ignore the last character in each string as it's a newline
-                dictionary_lines = [word.replace[:-1] for word in infile]
+                dictionary_lines = [word[:-1] for word in infile]
             dictionary_tree = {'VALID': False, 'WORD': ''}
             for word in dictionary_lines:
                 active_branch = dictionary_tree

@@ -17,7 +17,7 @@ game_manager.py, with two arguments for the number of human players and number o
 a game with just a human vs one AI opponent, type
 `python3 game_manager.py 1 1`
 
-![A game between two AI](https://i.imgur.com/Fwfxnv9.png)
+![A game between two AI](https://i.imgur.com/hq5r1Wi.png)
 
 While the command-line does have its advantages, I'm currently working on building a Flask app to play this game in a web browser in a way that's more than a little easier to see. 
 

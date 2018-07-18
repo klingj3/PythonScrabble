@@ -129,9 +129,9 @@ class HumanPlayer(Player):
                 if move.coords == (-2, -2) or board_state[y + i * is_d][x + i * is_r] == ' ':
                     if tile.islower():
                         tile = '?'
-                    if tile in tile_copy:
+                    try:
                         tile_copy.remove(tile)
-                    else:
+                    except ValueError:
                         return False
             return True
 
@@ -216,19 +216,6 @@ class AIPlayer(Player):
         assert (len(fixed_tiles) == 1 or
                 all([fixed_tiles[i][1] < fixed_tiles[i + 1][1] for i in range(len(fixed_tiles) - 1)]))
 
-        def without(full_list, item):
-            """
-            A shorthand for creating a copy of a list sans the first occurrence of an element, since most times we
-            recur we'll remove one element from the tile rack.
-            :param full_list: A list of objects
-            :param item: Item to be removed
-            :return: A copy of the list with the item removed.
-            """
-            local_list = full_list.copy()
-            if item in local_list:
-                local_list.remove(item)
-            return local_list
-
         """
         If the word at our current branch is valid, then we'll return it as a possible valid word, but only if there
         aren't required tiles upcoming which would directly attach to this word. For example, if we had the word at our
@@ -257,27 +244,32 @@ class AIPlayer(Player):
         else:
             # Casting tile to a set ensures we don't doubly traverse a branch in the case of repeated letters.
             for tile in set(tiles):
-                if tile != '?':
-                    if tile in starting_branch:
-                        valid_words += self.find_words(tiles=without(tiles, tile),
-                                                       starting_branch=starting_branch[tile],
-                                                       pos=pos + 1,
-                                                       min_length=min_length,
-                                                       max_length=max_length,
-                                                       fixed_tiles=fixed_tiles)
-                else:
-                    # In the case of blank tiles, we traverse every branch
+                new_tiles = tiles.copy()
+                new_tiles.remove(tile)
+                if tile == '?':
                     words_with_blanks = []
                     for key, value in starting_branch.items():
                         if key != 'VALID' and key != 'WORD':
-                            words_with_blanks += self.find_words(tiles=without(tiles, '?'),
+                            words_with_blanks += self.find_words(tiles=new_tiles,
                                                                  starting_branch=starting_branch[key],
                                                                  pos=pos + 1,
                                                                  min_length=min_length,
                                                                  max_length=max_length,
                                                                  fixed_tiles=fixed_tiles)
-                    words_with_blanks = [word[:pos] + word[pos].lower() + word[pos + 1:] for word in words_with_blanks]
+                    # We lower the character replacing '?' to signify it being a former blank tile on the board.
+                    words_with_blanks = [word[:pos] + word[pos].lower() + word[pos + 1:] for word in
+                                         words_with_blanks]
                     valid_words += words_with_blanks
+                else:
+                    # In the case of blank tiles, we traverse every branch
+                    if tile in starting_branch:
+                        valid_words += self.find_words(tiles=new_tiles,
+                                                       starting_branch=starting_branch[tile],
+                                                       pos=pos + 1,
+                                                       min_length=min_length,
+                                                       max_length=max_length,
+                                                       fixed_tiles=fixed_tiles)
+
         return valid_words
 
     def get_move_params(self, coords, direction, board_state):
