@@ -147,6 +147,8 @@ class HumanPlayer(Player):
                     return Move((-1, -1), '', '')
                 elif move_segments[0] == 'quit':
                     return Move((-3, -3), '', '')
+                else:
+                    print("Command {} not recognized.".format(move_segments[0]))
             # The only two-segment command which is valid is exchanging tiles.
             elif len(move_segments) == 2 and move_segments[0] == 'exchange':
                 if tiles_present_for_move(Move((-2, -2), '', move_segments[1])):
@@ -165,19 +167,18 @@ class HumanPlayer(Player):
                         if not tiles_present_for_move(move):
                             print("The player's tile rack does not contain the tiles needed for this move.")
                         else:
-                            move_score = self.rulebook.score_move(move, board_state)
-                            if move_score < 0:
-                                print('This word, or an ancillary word formed, is invalid.')
+                            if self.rulebook.score_move(move, board_state) < 0:
+                                print('This word, or an ancillary word formed, is invalid, or the word does not border'
+                                      'an existing tile on the board.')
                             else:
                                 return move
                     except InvalidPlacementError:
                         print(InvalidPlacementError)
-
-            print("Moves must comprised of x coordinate, y coordinate, direction D or R, and the word to be played." 
-                "To skip, type 'skip', or to exchange tiles, type 'exchange' followed by the tiles you wish to "
-                "exchange in one word, such as exchange 'AABC'"
-                )
-
+            else:
+                print('Moves must comprised of x coordinate, y coordinate, direction D or R, and the word to be played.'
+                      'To skip, type \'skip\', or to exchange tiles, type "exchange" followed by the tiles you wish to '
+                      'exchange in one word, such as "exchange AABC"'
+                      )
 
 
 class AIPlayer(Player):
@@ -188,15 +189,6 @@ class AIPlayer(Player):
     def __init__(self, id, init_tiles, name=None):
         # Call the default constructor to set name and tiles
         Player.__init__(self, id, init_tiles, name="AI {}".format(id))
-
-        # Build our scrabble dictionary, and the tree for quickly finding words in this dictionary
-        """
-        While in the current incarnation of this project, it is a little redundant to have a scrabble dictionary exist
-        within each AI as well as within the rulebook, in future incarnations the dictionary will be dependent on 
-        difficulty options, so this redundancy is for now included in order to facilitate this advancement down 
-        the line.
-        """
-        self.dictionary_root, self.scrabble_dictionary = self.rulebook.generate_dictionary_tree()
 
     def find_words(self, tiles=None, starting_branch=None, fixed_tiles=[], pos=0, min_length=2, max_length=15):
         """
@@ -219,7 +211,7 @@ class AIPlayer(Player):
         if tiles is None:
             tiles = self.tiles.copy()
         if starting_branch is None:
-            starting_branch = self.dictionary_root
+            starting_branch = self.rulebook.dictionary_root
 
         assert (len(fixed_tiles) == 1 or
                 all([fixed_tiles[i][1] < fixed_tiles[i + 1][1] for i in range(len(fixed_tiles) - 1)]))

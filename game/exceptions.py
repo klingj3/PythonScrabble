@@ -24,12 +24,3 @@ class InvalidPlacementError(Exception):
                 msg += "\n{} exists at this point, while {} was attempted".format(true_tile, attempted_tile)
         super(InvalidPlacementError, self).__init__(msg)
         self.word = word
-
-
-class OutOfBoardError(Exception):
-    """ Raised when a played word does not align with tiles currently on the board."""
-    def __init__(self, word, msg=None):
-        if msg is None:
-            msg = "Placing word %s exceeds the boundaries of the board." % word
-        super(OutOfBoardError, self).__init__(msg)
-        self.word = word

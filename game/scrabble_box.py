@@ -3,10 +3,11 @@ This contains the elements of the scrabble box: the board, the tiles, the rule b
 """
 from collections import Counter
 from colorama import init, Fore, Back, Style
-from exceptions import InvalidCoordinatesError, InvalidPlacementError, InvalidWordError, OutOfBoardError
+from exceptions import InvalidCoordinatesError, InvalidPlacementError, InvalidWordError
 
-import json
+import ujson
 import random
+import os
 import sys
 
 init()
@@ -41,12 +42,12 @@ class Board(object):
 
         reset = Style.RESET_ALL
         special_tile_color = {
-                            ' ': reset,
-                            'W': Back.RED + Fore.WHITE,
-                            'w': Back.MAGENTA + Fore.WHITE,
-                            'L': Back.BLUE + Fore.WHITE,
-                            'l': Back.CYAN + Fore.WHITE,
-                            '*': Back.MAGENTA + Fore.WHITE,
+                            ' ': '',
+                            'W': Fore.RED,
+                            'w': Fore.MAGENTA,
+                            'L': Fore.BLUE,
+                            'l': Fore.CYAN,
+                            '*': Fore.MAGENTA,
                             }
 
         string_rep = "   " + ' '.join([str(hex(x))[-1] for x in range(15)]) + "\n"
@@ -54,7 +55,7 @@ class Board(object):
             line = ''
             for j, tile in enumerate(self.state[i]):
                 if tile != ' ':
-                    line += Back.WHITE + Fore.BLACK + tile
+                    line += tile
                 else:
                     line += special_tile_color[self.special_tiles[i][j]] + self.special_tiles[i][j] + reset
                 line += ' '
@@ -93,11 +94,12 @@ class Rulebook(object):
         ]
 
         with open('docs/tile_scores.json', 'r') as infile:
-            self.tile_scores = json.load(infile)
-        self.dictionary_root, self.scrabble_dictionary = self.generate_dictionary_tree()
+            self.tile_scores = ujson.load(infile)
+
+        self.dictionary_root = self.generate_dictionary_tree()
 
     @staticmethod
-    def generate_dictionary_tree():
+    def generate_dictionary_tree(dict_path='docs/dictionary.txt'):
         """
         Rather than having a huge list to traverse through, or a set to check against, the dictionary of this agent
         is stoMAGENTA through a series of nested dictionaries, which work like a tree with easier indexing. Each branch of
@@ -112,28 +114,30 @@ class Rulebook(object):
         there exists a word where the first letter is M and the second letter is that letter in question. I'm still
         examining faster solutions, but at the moment it has been quite successful as a mode for discovering anagrams.
 
-        :return: Tuple (Dir tree, set of all words)
-        :rtype: Tuple
+        :return: Dictionary root of the tree.
+        :rtype: Dict
         """
 
-        # While on paper it'd make more sense to write and load this file from a saved dictionary tree, in actuality
-        # loading it only takes a fraction of a second less time than creating it, so since this method is only called
-        # on game initialization it's better to generate it fresh and have one fewer file to force the user to download.
+        # If it's just the default dictionary, then load the tree from the json.
+        if dict_path == 'docs/dictionary.txt':
+            with open('docs/dictionary_tree.json', 'r') as infile:
+                dictionary_tree = ujson.load(infile)
+        else:
+            # Otherwise, we load this non-standard dictionary and build a tree around it.
+            with open(dict_path, 'r') as infile:
+                # We ignore the last character in each string as it's a newline
+                dictionary_lines = [word.replace[:-1] for word in infile]
+            dictionary_tree = {'VALID': False, 'WORD': ''}
+            for word in dictionary_lines:
+                active_branch = dictionary_tree
+                for i, character in enumerate(word):
+                    if character not in active_branch:
+                        active_branch[character] = {'VALID': False, 'WORD': active_branch['WORD'] + character}
+                    active_branch = active_branch[character]
+                    if i == len(word) - 1:
+                        active_branch['VALID'] = True
 
-        # We build a tree from this dictionary of words.
-        dictionary_tree = {'VALID': False, 'WORD': ''}
-        with open("docs/dictionary.txt") as dict_file:
-            dictionary_lines = [word.replace('\n', '') for word in dict_file]
-
-        for word in dictionary_lines:
-            active_branch = dictionary_tree
-            for i, character in enumerate(word):
-                if character not in active_branch:
-                    active_branch[character] = {'VALID': False, 'WORD': active_branch['WORD'] + character}
-                active_branch = active_branch[character]
-                if i == len(word) - 1:
-                    active_branch['VALID'] = True
-        return dictionary_tree, set(dictionary_lines)
+        return dictionary_tree
 
     def score_move(self, move, board_state, allow_illegal=False):
         """
@@ -157,20 +161,30 @@ class Rulebook(object):
         :rtype int
         """
 
-        def neighboMAGENTA_x(y, x):
-            return (x > 0 and board_state[y][x-1] != ' ') or (x < 14 and board_state[y][x+1] != ' ')
+        def neighbor_x(y, x):
+            if (x > 0 and board_state[y][x-1] != ' ') or (x < 14 and board_state[y][x+1] != ' '):
+                return True
 
-        def neighboMAGENTA_y(y, x):
-            return (y > 0 and board_state[y-1][x] != ' ') or (y < 14 and board_state[y+1][x] != ' ')
-
-        assert(move.dir == 'R' or move.dir == 'D')
+        def neighbor_y(y, x):
+            if (y > 0 and board_state[y-1][x] != ' ') or (y < 14 and board_state[y+1][x] != ' '):
+                return True
 
         y, x = move.coords
 
-        total_score = self.score_word(y, x, move.dir, move.word, board_state)
+        if self.word_is_valid(move.word):
+            total_score = self.score_word(y, x, move.dir, move.word, board_state)
+        else:
+            return -1
+
+        is_d, is_r = int(move.dir == 'D' ), int(move.dir == 'R')
+
+        valid_position = False
 
         for i, tile in enumerate(move.word):
-            if move.dir == 'D' and neighboMAGENTA_x(y+i, x):
+            if (y+i*is_d, x+i*is_r) == (7, 7):
+                valid_position = True
+            if move.dir == 'D' and neighbor_x(y+i, x):
+                valid_position = True
                 # We only care if this is a fresh tile
                 if board_state[y+i][x] == ' ':
                     # As the core word direction is down, we look for ancillary formed words along the X axis
@@ -185,7 +199,8 @@ class Rulebook(object):
                         total_score += self.score_word(y+i, word_start, 'R', anc_word, board_state)
                     else:
                         return -1
-            elif move.dir == 'R' and neighboMAGENTA_y(y, x+i):
+            elif move.dir == 'R' and neighbor_y(y, x+i):
+                valid_position = True
                 # We only care if this is a fresh tile
                 if board_state[y][x+i] == ' ':
                     # As the core word direction is right, we look for ancillary formed words along the Y axis
@@ -202,7 +217,11 @@ class Rulebook(object):
                     else:
                         return -1
 
-        return total_score
+        # If this move at no point either neighbors or intersects another word, we return a score of -1.
+        if not valid_position:
+            return -1
+        else:
+            return total_score
 
     def score_word(self, y, x, dir, word, board_state, debug_mode=False):
         """
@@ -269,7 +288,21 @@ class Rulebook(object):
 
     def word_is_valid(self, word):
         # We cast the word to uppercase in case there's a blank tile in it.
-        return word.upper() in self.scrabble_dictionary
+        word = word.upper()
+        branch = self.dictionary_root
+
+        """
+        We then traverse our dictionary tree checking to see if the current word is in it.
+        
+        While you'd instinctively think that this approach is far slower than loading the dictionary into a set and 
+        checking if the word was in the set at this turn, it is not measurably slower.
+        """
+        for character in word:
+            if character in branch:
+                branch = branch[character]
+            else:
+                return False
+        return True
 
 
 class TileBag(object):
@@ -280,7 +313,7 @@ class TileBag(object):
         from the bag, and thus whether it is best to play a poor word or switch it for a better opportunity.
         """
         with open('docs/tile_counts.json', 'r') as infile:
-            self.tile_counts = json.load(infile)
+            self.tile_counts = ujson.load(infile)
 
         # Use these counts to generate the correct numbers of tiles in the bag.
         self.bag = []

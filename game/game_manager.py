@@ -28,7 +28,7 @@ class GameMaster(object):
         for i in range(human_count):
             self.players.append(HumanPlayer(id=i, init_tiles=self.bag.grab(7)))
         for i in range(ai_count):
-            self.players.append(AIPlayer(id=human_count+i, init_tiles=self.bag.grab(7), name="AI {}".format(i+1)))
+            self.players.append(AIPlayer(id=human_count+i, init_tiles=self.bag.grab(7), name="AI {}".format(i+2)))
         self.player_scores = [0 for _ in range(len(self.players))]
 
     def play_game(self):
