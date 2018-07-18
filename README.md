@@ -2,8 +2,8 @@
 
 #### Requirements
 
-Python 3.5 or higher. The only nonstandard package used in this project is Colorama, which is used for coloring the board in human v. player games. To install, of course just type
-`pip3 install colorama`
+Python 3.5 or higher. The only nonstandard packages used are colorama and ultrajson, which is used for coloring the board in human v. player games. To install, of course just type
+`pip3 install colorama ujson`
 
 ## Overview
 I love scrabble, but I'm continuously disappointed by the quality of online scrabble games. A lot of them are slow, or require you to drag each tile on the board individually, or tell you if a word you're trying to play is in the dictionary which defeats a key part of the game, or have different two letter words than in the actual scrabble dictionary. This project is a command-line version of scrabble which can be played much more quickly than most web versions, and have a robust and reasonably challenging AI opponent (or opponents) to play against.
