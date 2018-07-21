@@ -1,11 +1,8 @@
-from colorama import init, Fore, Back, Style
 from scrabble_box import Board, Rulebook, TileBag
 from scrabble_players import HumanPlayer, AIPlayer
+from random import shuffle
 
 import sys
-
-init()
-fore_colors = [Fore.RED, Fore.GREEN, Fore.YELLOW, Fore.BLUE, Fore.MAGENTA, Fore.CYAN, Fore.WHITE]
 
 class GameMaster(object):
     """
@@ -25,10 +22,10 @@ class GameMaster(object):
         self.bag = TileBag()
         self.rulebook = Rulebook()
         self.players = []
-        for i in range(human_count):
-            self.players.append(HumanPlayer(id=i, init_tiles=self.bag.grab(7)))
         for i in range(ai_count):
-            self.players.append(AIPlayer(id=human_count+i, init_tiles=self.bag.grab(7), name="AI {}".format(i+2)))
+            self.players.append(AIPlayer(id=1+human_count+i, init_tiles=self.bag.grab(7), rulebook=self.rulebook, name="AI {}".format(i+1)))
+        for i in range(human_count):
+            self.players.append(HumanPlayer(id=i+1, init_tiles=self.bag.grab(7), rulebook=self.rulebook))
         self.player_scores = [0 for _ in range(len(self.players))]
 
     def play_game(self):
@@ -40,11 +37,12 @@ class GameMaster(object):
         # We keep track of the consecutive skips as this is one of the conditions which can lead to the game's end.
         consecutive_skips = 0
 
-        player_count = len(self.players)
+        shuffle(self.players)
+        print("Player order is: {}".format(', '.join([player.name for player in self.players])))
 
         # The game ends when oen player has used all of their tiles, or if everyone skips for two turns because nothing
         # can be placed. (This is very unlikely, but must be included as an edge case.
-        while consecutive_skips < 2*player_count and min([len(player.tiles) for player in self.players]) > 0:
+        while consecutive_skips < len(self.players) and min([len(player.tiles) for player in self.players]) > 0:
             for i, player in enumerate(self.players):
 
                 if isinstance(player, HumanPlayer):
@@ -84,11 +82,9 @@ class GameMaster(object):
         :param player:
         :return:
         """
-        print(Style.BRIGHT)
         for i, opponent in enumerate(self.players):
             print("{}: {} pts".format(opponent.name, self.player_scores[i]))
-        print(Style.RESET_ALL)
-
+        return None
 
 if __name__ == '__main__':
     if len(sys.argv) == 1:

@@ -5,7 +5,7 @@ from collections import Counter
 from colorama import init, Fore, Back, Style
 from exceptions import InvalidCoordinatesError, InvalidPlacementError, InvalidWordError
 
-import ujson
+import json
 import random
 import os
 import sys
@@ -94,7 +94,7 @@ class Rulebook(object):
         ]
 
         with open('docs/tile_scores.json', 'r') as infile:
-            self.tile_scores = ujson.load(infile)
+            self.tile_scores = json.load(infile)
 
         self.dictionary_root = self.generate_dictionary_tree()
 
@@ -121,7 +121,7 @@ class Rulebook(object):
         # If it's just the default dictionary, then load the tree from the json.
         if dict_path == 'docs/dictionary.txt':
             with open('docs/dictionary_tree.json', 'r') as infile:
-                dictionary_tree = ujson.load(infile)
+                dictionary_tree = json.load(infile)
         else:
             # Otherwise, we load this non-standard dictionary and build a tree around it.
             with open(dict_path, 'r') as infile:
@@ -302,7 +302,7 @@ class Rulebook(object):
                 branch = branch[character]
             else:
                 return False
-        return True
+        return branch['VALID']
 
 
 class TileBag(object):
@@ -313,7 +313,7 @@ class TileBag(object):
         from the bag, and thus whether it is best to play a poor word or switch it for a better opportunity.
         """
         with open('docs/tile_counts.json', 'r') as infile:
-            self.tile_counts = ujson.load(infile)
+            self.tile_counts = json.load(infile)
 
         # Use these counts to generate the correct numbers of tiles in the bag.
         self.bag = []

@@ -8,9 +8,9 @@ import sys
 debug_mode = False
 
 class Player(object):
-    def __init__(self, id, init_tiles, name=None):
+    def __init__(self, id, init_tiles, rulebook, name=None):
         while name is None:
-            name = input("Enter the name for this player: ")
+            name = input("Enter the name for human {}: ".format(id))
             if name.isspace():
                 print('Player names must contain non-space characters.')
                 name = None
@@ -26,7 +26,7 @@ class Player(object):
         self.word_hist = []
         self.tiles = init_tiles
         # The rulebook for scoring moves and other similar functions
-        self.rulebook = Rulebook()
+        self.rulebook = rulebook
 
     def __str__(self):
         return self.name
@@ -104,14 +104,13 @@ class HumanPlayer(Player):
     Game Master through the command line/terminal interface.
     """
 
-    def __init__(self, id, init_tiles, name=None):
-        Player.__init__(self, id, init_tiles, name)
+    def __init__(self, id, init_tiles, rulebook, name=None):
+        Player.__init__(self, id, init_tiles, rulebook, name)
 
     def get_move(self, board_state):
         """
         :param board_state: The current board
-        :return: A string representing the player's desired move. ALl error checking regarding the legality of this
-                move and string integrity is handled by the game-master.
+        :return: A move tuple representing the player's desired action.
         """
 
         def tiles_present_for_move(move):
@@ -123,6 +122,10 @@ class HumanPlayer(Player):
             tile_copy = self.tiles.copy()
             is_d, is_r = (move.dir == 'D', move.dir == 'R')
             y, x = move.coords
+
+            # Return false if the word doesn't fit here.
+            if max(y+is_d*len(move.word), x+is_r*len(move.word)) > 14:
+                return False
 
             for i, tile in enumerate(move.word):
                 # If the board is blank at this point, remove the tile from our tiles.
@@ -186,9 +189,9 @@ class AIPlayer(Player):
     AI Competitor
     """
 
-    def __init__(self, id, init_tiles, name=None):
+    def __init__(self, id, init_tiles, rulebook, name=None):
         # Call the default constructor to set name and tiles
-        Player.__init__(self, id, init_tiles, name="AI {}".format(id))
+        Player.__init__(self, id, init_tiles, rulebook, name)
 
     def find_words(self, tiles=None, starting_branch=None, fixed_tiles=[], pos=0, min_length=2, max_length=15):
         """
@@ -398,15 +401,18 @@ class AIPlayer(Player):
             valid_moves += [Move(vl.coords, vl.dir, word) for word in valid_words]
 
         # Now we score our prospective moves, and remove the invalid ones.
-        move_scores = [(move, self.rulebook.score_move(move, board_state)) for move in valid_moves
-                       if self.rulebook.score_move(move, board_state) > 0]
-
+        move_scores = [(move, self.move_heuristic(move, board_state)) for move in valid_moves]
         move_scores = sorted(move_scores, key=lambda x: x[1], reverse=True)
 
-        if move_scores:
-            move = move_scores[0][0]
+        if move_scores and move_scores[0][1] > 0:
+            return move_scores[0][0]
         else:
-            # If no moves are available, we send the skip signal which is coordinates of -1, -1
-            move = Move((-1, -1), '', '')
+            # If no legal moves are available, we send the skip signal which is coordinates of -1, -1
+            return Move((-1, -1), '', '')
 
-        return move
+    def move_heuristic(self, move, board_state):
+        """
+        Return a positive value representing the current value of a move, or -1 if the move is impossible.
+        TODO: GA Approach to heuristic. 
+        """
+        return self.rulebook.score_move(move, board_state)
