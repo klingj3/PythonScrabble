@@ -1,4 +1,4 @@
-# PyScrabble
+    # PyScrabble
 
 #### Requirements
 
@@ -16,8 +16,6 @@ and all of the human commands can be interpreted correctly. To run ths game, sim
 game_manager.py, with two arguments for the number of human players and number of AI players. For example, to start
 a game with just a human vs one AI opponent, type
 `python3 game_manager.py 1 1`
-
-![A game between two AI](https://i.imgur.com/hq5r1Wi.png)
 
 While the command-line does have its advantages, I'm currently working on building a Flask app to play this game in a web browser in a way that's more than a little easier to see. 
 

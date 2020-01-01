@@ -7,6 +7,7 @@ import sys
 # TODO: REMOVE DEBUG STATEMENTS
 debug_mode = False
 
+
 class Player(object):
     def __init__(self, id, init_tiles, rulebook, name=None):
         while name is None:

@@ -3,7 +3,7 @@ This contains the elements of the scrabble box: the board, the tiles, the rule b
 """
 from collections import Counter
 from colorama import init, Fore, Back, Style
-from exceptions import InvalidCoordinatesError, InvalidPlacementError, InvalidWordError
+from .exceptions import InvalidCoordinatesError, InvalidPlacementError, InvalidWordError
 
 import json
 import random
@@ -157,7 +157,8 @@ class Rulebook(object):
         Returns 0 if the move is invalid.
         :param move: namedtuple defined as as ('move', 'coords dir word')
         :param board_state: List of strings representing the current board condition
-        :return: Score
+        :param allow_illegal: If true, then return the score of the word even if the move is invalid.
+        :return: Integer score of the played move, or -1 if the move is invalid.
         :rtype int
         """
 
@@ -171,12 +172,12 @@ class Rulebook(object):
 
         y, x = move.coords
 
-        if self.word_is_valid(move.word):
+        if allow_illegal or self.word_is_valid(move.word):
             total_score = self.score_word(y, x, move.dir, move.word, board_state)
         else:
             return -1
 
-        is_d, is_r = int(move.dir == 'D' ), int(move.dir == 'R')
+        is_d, is_r = int(move.dir == 'D'), int(move.dir == 'R')
 
         valid_position = False
 
@@ -218,12 +219,12 @@ class Rulebook(object):
                         return -1
 
         # If this move at no point either neighbors or intersects another word, we return a score of -1.
-        if not valid_position:
+        if not valid_position and not allow_illegal:
             return -1
         else:
             return total_score
 
-    def score_word(self, y, x, dir, word, board_state, debug_mode=False):
+    def score_word(self, y, x, dir, word, board_state):
         """
         Scores a word played starting at coordinates x, y in direction dir.
         :param y: Starting y coordinate

@@ -55,6 +55,6 @@ class TestRulebook(TestCase):
         test_board = blank_board.copy()
         test_board[14] = ' ' + 'U' + ' '*13
         test_move = Move((14, 0), 'R', 'QUINTETS')
-        self.assertEqual(rulebook.score_move(test_move, test_board), 50+18*9)
+        self.assertEqual(rulebook.score_move(test_move, test_board, allow_illegal=True), 50+18*9)
 
 
