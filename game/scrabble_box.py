@@ -3,7 +3,7 @@ This contains the elements of the scrabble box: the board, the tiles, the rule b
 """
 from collections import Counter
 from colorama import init, Fore, Back, Style
-from .exceptions import InvalidCoordinatesError, InvalidPlacementError, InvalidWordError
+from exceptions import InvalidCoordinatesError, InvalidPlacementError, InvalidWordError
 
 import json
 import random
@@ -97,6 +97,14 @@ class Rulebook(object):
             self.tile_scores = json.load(infile)
 
         self.dictionary_root = self.generate_dictionary_tree()
+
+    def calculate_penalty(self, tiles):
+        """
+        Calculate the end of game penalty for a set of tiles.
+        :param tiles: List of single character strings
+        :return: Integer
+        """
+        return sum(self.tile_scores[tile] for tile in tiles)
 
     @staticmethod
     def generate_dictionary_tree(dict_path='docs/dictionary.txt'):

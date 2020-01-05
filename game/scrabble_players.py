@@ -161,10 +161,14 @@ class HumanPlayer(Player):
                     print("Tiles for this exchange are not present in your rack.")
             # Otherwise, we assume this is a regular move and attempt to process it.
             elif len(move_segments) == 4:
-                x, y, dir, word = move_segments
-                move = Move((int(y, 16), int(x, 16)), dir, word)
+                x, y, direction, word = move_segments
+                direction = direction.upper()
+
+                move = Move((int(y, 16), int(x, 16)), direction, word)
                 if move.coords[0] < 0 or move.coords[0] < 0 or move.coords[1] > 14 or move.coords[1] > 14:
-                    print('Moves must be within the boundaries 0 and d (d being hexidecimal 14)')
+                    print('Moves must be within the boundaries 0 and d (d being hexadecimal 14)')
+                elif direction != 'D' and direction != 'R':
+                    print('direction argument in format <x> <y> <dir> <tiles> must be D or R, not ' + direction)
                 else:
                     try:
                         # Check that we have all of the tiles we're attempting to play.
@@ -194,7 +198,7 @@ class AIPlayer(Player):
         # Call the default constructor to set name and tiles
         Player.__init__(self, id, init_tiles, rulebook, name)
 
-    def find_words(self, tiles=None, starting_branch=None, fixed_tiles=[], pos=0, min_length=2, max_length=15):
+    def find_words(self, tiles=None, starting_branch=None, fixed_tiles=(), pos=0, min_length=2, max_length=15):
         """
         :param tiles: A list of single-characters representing the player's tiles.
         :param starting_branch: The starting branch in the dictionary tree which we'll be exploring

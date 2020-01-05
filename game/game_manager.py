@@ -40,13 +40,15 @@ class GameMaster(object):
         shuffle(self.players)
         print("Player order is: {}".format(', '.join([player.name for player in self.players])))
 
+        id_of_first = None
+
         # The game ends when oen player has used all of their tiles, or if everyone skips for two turns because nothing
         # can be placed. (This is very unlikely, but must be included as an edge case.
         while consecutive_skips < len(self.players) and min([len(player.tiles) for player in self.players]) > 0:
             for i, player in enumerate(self.players):
 
                 if isinstance(player, HumanPlayer):
-                    self.print_scoresheet()
+                    self.print_score_sheet()
                     print(self.board)
 
                 move = player.prompt_move(self.board.state)
@@ -70,21 +72,28 @@ class GameMaster(object):
                     player.receive_tiles(self.bag.grab(num_new_tiles))
 
                     if len(player.tiles) == 0:
+                        id_of_first = player.id
+                        print("Player {} has used all their tiles".format(player.name))
                         break
 
-        print(self.board)
         for i, player in enumerate(self.players):
-            print("{}: {} pts".format(player.name, self.player_scores[i]))
+            if player.id != id_of_first:
+                penalty = self.rulebook.calculate_penalty(player.tiles)
+                print("{} loses {} points for remaining tiles: {}".format(player.name, penalty, ', '.join(player.tiles)))
+                self.player_scores[i] -= penalty
 
-    def print_scoresheet(self):
+        print(self.board)
+        self.print_score_sheet()
+
+    def print_score_sheet(self):
         """
         Prints the scores of all players, with the current player being last.
-        :param player:
-        :return:
+        :return: None
         """
         for i, opponent in enumerate(self.players):
             print("{}: {} pts".format(opponent.name, self.player_scores[i]))
         return None
+
 
 if __name__ == '__main__':
     if len(sys.argv) == 1:
