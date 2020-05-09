@@ -2,7 +2,7 @@
 
 This is a command-line version of scrabble, which can be played by multiple people on the same machine or against an virtually unbeatable computer-controlled opponent or (opponents) which brute forces the best possible each turn. 
 
-![](game/docs/example_game.png)
+![](docs/example_game.png)
 
 
 #### Requirements
@@ -27,3 +27,6 @@ At each turn, the user has the following moves.
 `exchange <LETTERS>` exchanges the tiles in the string (here letters) at the expense of a turn.
 
 `7 7 R PYTHON` plays the word in the direction `R` for right (or `D` for down), starting at x, y, coordinates `7, 7`
+
+`define <WORD>` prints out the definition of a word. The English dictionary used is the best JSON dictionary I could find
+but is missing some common words.

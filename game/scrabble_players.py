@@ -1,11 +1,9 @@
 from collections import namedtuple
-from scrabble_box import Rulebook
-from exceptions import InvalidPlacementError
+from multiprocessing.dummy import Pool
+from .scrabble_box import Rulebook
+from .exceptions import InvalidPlacementError
 
 import sys
-
-# TODO: REMOVE DEBUG STATEMENTS
-debug_mode = False
 
 
 class Player(object):
@@ -34,7 +32,7 @@ class Player(object):
 
     def get_move(self, board_state):
         """
-        :param board_state: A list of strings reprenting the currently played tiles on the scrabble board.
+        :param board_state: A list of strings representing the currently played tiles on the scrabble board.
         :return: A namedtuple Move defined as ('Move', 'coords word dir')
         :rtype namedtuple
         """
@@ -56,10 +54,10 @@ class Player(object):
             else:
                 is_d, is_r = (dir == 'D', dir == 'R')
                 y, x = coords
-                for i, tile in enumerate(word):
+                for i, tile in enumerate(word.upper()):
                     # If the board is blank at this point, remove the tile from our tiles.
                     if board_state[y + i * is_d][x + i * is_r] == ' ':
-                        if tile.islower():
+                        if tile not in self.tiles and '?' in self.tiles:
                             tile = '?'
                         self.tiles.remove(tile)
 
@@ -81,22 +79,13 @@ class Player(object):
         """
         self.tiles += new_tiles
 
-        if debug_mode:
-            assert (len(self.tiles) <= 7)
-
     def set_tiles(self, tiles):
         """
-        Used for the Game Master to set the player's tiles for debugging purposes.
+        Used for the Game Master to set the player's tiles for testing purposes.
         :param tiles: The list of single character strings representing the new tiles.
         :return: None
         """
-        if not debug_mode:
-            sys.stderr.write('SET TILES TO BE USED ONLY IN DEBUG MODE.')
-
         self.tiles = tiles
-
-        if debug_mode:
-            assert (len(self.tiles) <= 7)
 
 
 class HumanPlayer(Player):
@@ -128,10 +117,10 @@ class HumanPlayer(Player):
             if max(y+is_d*len(move.word), x+is_r*len(move.word)) > 14:
                 return False
 
-            for i, tile in enumerate(move.word):
+            for i, tile in enumerate(move.word.upper()):
                 # If the board is blank at this point, remove the tile from our tiles.
                 if move.coords == (-2, -2) or board_state[y + i * is_d][x + i * is_r] == ' ':
-                    if tile.islower():
+                    if tile not in self.tiles and '?' in self.tiles:
                         tile = '?'
                     try:
                         tile_copy.remove(tile)
@@ -143,7 +132,7 @@ class HumanPlayer(Player):
         print("Tiles: [" + str(self.tiles) + "]")
         while True:
             player_move = input("Action: ")
-            move_segments = player_move.split(' ')
+            move_segments = player_move.lower().strip().split(' ')
 
             # If only one word was entered, we check to see if it's one of the exit two valid single-word commands.
             if len(move_segments) == 1:
@@ -151,20 +140,29 @@ class HumanPlayer(Player):
                     return Move((-1, -1), '', '')
                 elif move_segments[0] == 'quit':
                     return Move((-3, -3), '', '')
+                elif move_segments[0] == 'help':
+                    print("\n".join(["Commands:" "'quit' quits the game", "'skip' skips a turn",
+                                     "'exchange' <LETTERS> exchanges some of your tiles",
+                                     "'define' <WORD> will define a word previously played",
+                                     "'<X> <Y> <D or R> <WORD>' (e.g 7 7 R PYTHON) plays the word in the direction "
+                                     "R for right (or D for down), starting at x, y, coordinates 7, 7"]))
                 else:
                     print("Command {} not recognized.".format(move_segments[0]))
             # The only two-segment command which is valid is exchanging tiles.
-            elif len(move_segments) == 2 and move_segments[0] == 'exchange':
-                if tiles_present_for_move(Move((-2, -2), '', move_segments[1])):
-                    return Move((-2, -2), '', move_segments[1])
-                else:
-                    print("Tiles for this exchange are not present in your rack.")
+            elif len(move_segments) == 2:
+                if move_segments[0] == 'exchange':
+                    if tiles_present_for_move(Move((-2, -2), '', move_segments[1].upper())):
+                        return Move((-2, -2), '', move_segments[1])
+                    else:
+                        print("Tiles for this exchange are not present in your rack.")
+                elif move_segments[0] == 'define':
+                    print(self.rulebook.define(move_segments[1]))
             # Otherwise, we assume this is a regular move and attempt to process it.
             elif len(move_segments) == 4:
                 x, y, direction, word = move_segments
                 direction = direction.upper()
 
-                move = Move((int(y, 16), int(x, 16)), direction, word)
+                move = Move((int(y, 16), int(x, 16)), direction, word.upper())
                 if move.coords[0] < 0 or move.coords[0] < 0 or move.coords[1] > 14 or move.coords[1] > 14:
                     print('Moves must be within the boundaries 0 and d (d being hexadecimal 14)')
                 elif direction != 'D' and direction != 'R':
@@ -183,15 +181,11 @@ class HumanPlayer(Player):
                     except InvalidPlacementError:
                         print(InvalidPlacementError)
             else:
-                print('Moves must comprised of x coordinate, y coordinate, direction D or R, and the word to be played.'
-                      'To skip, type \'skip\', or to exchange tiles, type "exchange" followed by the tiles you wish to '
-                      'exchange in one word, such as "exchange AABC"'
-                      )
+                print("Command {} not recognized. Type 'help' for help".format(move_segments[0]))
 
-
-class AIPlayer(Player):
+class ComputerPlayer(Player):
     """
-    AI Competitor
+    Computer-Controlled Competitor
     """
 
     def __init__(self, id, init_tiles, rulebook, name=None):
@@ -410,6 +404,8 @@ class AIPlayer(Player):
         move_scores = sorted(move_scores, key=lambda x: x[1], reverse=True)
 
         if move_scores and move_scores[0][1] > 0:
+            self.word_hist.append(move_scores[0][0].word)
+            self.score_hist.append(move_scores[0][1])
             return move_scores[0][0]
         else:
             # If no legal moves are available, we send the skip signal which is coordinates of -1, -1

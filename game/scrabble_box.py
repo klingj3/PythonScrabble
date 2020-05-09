@@ -3,14 +3,13 @@ This contains the elements of the scrabble box: the board, the tiles, the rule b
 """
 from collections import Counter
 from colorama import init, Fore, Back, Style
-from exceptions import InvalidCoordinatesError, InvalidPlacementError, InvalidWordError
+from .exceptions import InvalidCoordinatesError, InvalidPlacementError, InvalidWordError
 
 import json
 import random
 import os
 import sys
 
-init()
 
 class Board(object):
     def __init__(self):
@@ -93,10 +92,12 @@ class Rulebook(object):
             'W  l   W   l  W',
         ]
 
-        with open('docs/tile_scores.json', 'r') as infile:
-            self.tile_scores = json.load(infile)
+        with open('game/data/tile_scores.json', 'r') as infile:
+            self.tile_scores = json.loads(infile.read())
 
         self.dictionary_root = self.generate_dictionary_tree()
+        with open('game/data/english_dictionary.json', 'r') as infile:
+            self.english_dictionary = json.loads(infile.read())
 
     def calculate_penalty(self, tiles):
         """
@@ -106,8 +107,22 @@ class Rulebook(object):
         """
         return sum(self.tile_scores[tile] for tile in tiles)
 
+    def define(self, word):
+        """
+        Get the English definition of a word.
+        :param word: String word
+        :return: String description of word
+        """
+        word = word.upper()
+        if not self.word_is_valid(word):
+            return f"Word {word} does not appear in this game's list of scrabble words"
+        definition = self.english_dictionary.get(word)
+        if not definition:
+            return f"Word {word} is in our Scrabble dictionary, but not in the English dictionary!"
+        return f"{word}: {definition}"
+
     @staticmethod
-    def generate_dictionary_tree(dict_path='docs/dictionary.txt'):
+    def generate_dictionary_tree(dict_path='game/data/dictionary.txt'):
         """
         Rather than having a huge list to traverse through, or a set to check against, the dictionary of this agent
         is stoMAGENTA through a series of nested dictionaries, which work like a tree with easier indexing. Each branch of
@@ -127,8 +142,8 @@ class Rulebook(object):
         """
 
         # If it's just the default dictionary, then load the tree from the json.
-        if dict_path == 'docs/dictionary.txt':
-            with open('docs/dictionary_tree.json', 'r') as infile:
+        if dict_path == 'game/data/dictionary.txt':
+            with open('game/data/dictionary_tree.json', 'r') as infile:
                 dictionary_tree = json.load(infile)
         else:
             # Otherwise, we load this non-standard dictionary and build a tree around it.
@@ -321,7 +336,7 @@ class TileBag(object):
         This dictionary will be used by the bots in determining the probability of pulling a favorable piece
         from the bag, and thus whether it is best to play a poor word or switch it for a better opportunity.
         """
-        with open('docs/tile_counts.json', 'r') as infile:
+        with open('game/data/tile_counts.json', 'r') as infile:
             self.tile_counts = json.load(infile)
 
         # Use these counts to generate the correct numbers of tiles in the bag.

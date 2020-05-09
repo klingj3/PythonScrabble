@@ -5,14 +5,13 @@ from unittest import TestCase
 import os
 
 # Move up to the parent directory so that we can access the correct ground files.
-os.chdir("../")
-
+os.chdir('../..')
 rulebook = Rulebook()
 
 
 class TestRulebook(TestCase):
     def test_score_moves(self):
-        "Test that moves are recognized as being valid."
+        """ Test that moves are recognized as being valid. """
 
         blank_board = [''.join([' ' for _ in range(15)]) for _ in range(15)]
         Move = namedtuple('move', 'coords dir word')
