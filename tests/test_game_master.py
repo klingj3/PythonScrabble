@@ -1,4 +1,4 @@
-"""Tests for :class:`game.game_master.GameMaster`."""
+"""GameMaster tests."""
 
 from __future__ import annotations
 

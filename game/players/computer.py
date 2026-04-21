@@ -8,6 +8,66 @@ from ..rulebook import Rulebook
 from ..types import BoardState, Move
 from .base import Player
 
+_A_ORD = ord("A")
+_BLANK_IDX = 26
+_RACK_VEC_LEN = 27
+_TRIE_CHILDREN_KEY = "_C"
+
+
+def _find_words_dfs(
+    node: dict[str, Any],
+    counts: list[int],
+    fixed_at: list[str | None],
+    pos: int,
+    rack_used: int,
+    blank_mask: int,
+    min_length: int,
+    max_length: int,
+    out: list[str],
+) -> None:
+    """Depth-first trie walk: append finished words to out. counts and fixed_at are updated in place."""
+    if (
+        node["VALID"]
+        and pos >= min_length
+        and rack_used > 0
+        and fixed_at[pos] is None
+    ):
+        word: str = node["WORD"]
+        if blank_mask:
+            word = "".join(
+                c.lower() if (blank_mask >> i) & 1 else c for i, c in enumerate(word)
+            )
+        out.append(word)
+
+    if pos >= max_length:
+        return
+
+    forced = fixed_at[pos]
+    if forced is not None:
+        child = node.get(forced)
+        if child is not None:
+            _find_words_dfs(
+                child, counts, fixed_at, pos + 1, rack_used, blank_mask,
+                min_length, max_length, out,
+            )
+        return
+
+    for idx, child in node[_TRIE_CHILDREN_KEY]:
+        if counts[idx] > 0:
+            counts[idx] -= 1
+            _find_words_dfs(
+                child, counts, fixed_at, pos + 1, rack_used + 1, blank_mask,
+                min_length, max_length, out,
+            )
+            counts[idx] += 1
+        if counts[_BLANK_IDX] > 0:
+            counts[_BLANK_IDX] -= 1
+            _find_words_dfs(
+                child, counts, fixed_at, pos + 1, rack_used + 1,
+                blank_mask | (1 << pos), min_length, max_length, out,
+            )
+            counts[_BLANK_IDX] += 1
+
 
 class _MoveParam(NamedTuple):
     """One candidate anchor: position, direction, length bounds, and board-fixed letters."""
@@ -20,7 +80,7 @@ class _MoveParam(NamedTuple):
 
 
 class ComputerPlayer(Player):
-    """AI that enumerates dictionary words and picks the highest-scoring legal move."""
+    """Computer opponent: search legal words and keep the best score."""
 
     def __init__(
         self,
@@ -29,7 +89,6 @@ class ComputerPlayer(Player):
         rulebook: Rulebook,
         name: str | None = None,
     ) -> None:
-        """See ``Player``."""
         super().__init__(player_id, init_tiles, rulebook, name)
 
     def find_words(
@@ -41,72 +100,44 @@ class ComputerPlayer(Player):
         min_length: int = 2,
         max_length: int = 15,
     ) -> list[str]:
-        """Enumerate valid words from the rack, optional fixed board letters, and length bounds."""
+        """Words from the rack, optional fixed board letters, and length bounds."""
         if pos > max_length:
             return []
 
         if tiles is None:
-            tiles = self.tiles.copy()
+            tiles = self.tiles
         if starting_branch is None:
             starting_branch = self.rulebook.dictionary_root
 
-        assert len(fixed_tiles) == 1 or all(
+        assert len(fixed_tiles) <= 1 or all(
             fixed_tiles[i][1] < fixed_tiles[i + 1][1] for i in range(len(fixed_tiles) - 1)
         )
 
-        if (
-            starting_branch["VALID"]
-            and len(starting_branch["WORD"]) >= min_length
-            and len(tiles) < len(self.tiles)
-        ):
-            if not fixed_tiles or fixed_tiles[0][1] > len(starting_branch["WORD"]):
-                valid_words = [starting_branch["WORD"]]
+        counts = [0] * _RACK_VEC_LEN
+        for tile in tiles:
+            if tile == "?":
+                counts[_BLANK_IDX] += 1
             else:
-                valid_words = []
-        else:
-            valid_words = []
+                counts[ord(tile) - _A_ORD] += 1
 
-        if fixed_tiles and fixed_tiles[0][1] == pos:
-            if fixed_tiles[0][0] in starting_branch:
-                valid_words += self.find_words(
-                    tiles=tiles,
-                    starting_branch=starting_branch[fixed_tiles[0][0]],
-                    fixed_tiles=fixed_tiles[1:],
-                    pos=pos + 1,
-                    min_length=min_length,
-                    max_length=max_length,
-                )
-        else:
-            for tile in set(tiles):
-                new_tiles = tiles.copy()
-                new_tiles.remove(tile)
-                if tile == "?":
-                    words_with_blanks: list[str] = []
-                    for key, value in starting_branch.items():
-                        if key != "VALID" and key != "WORD":
-                            words_with_blanks += self.find_words(
-                                tiles=new_tiles,
-                                starting_branch=value,
-                                pos=pos + 1,
-                                min_length=min_length,
-                                max_length=max_length,
-                                fixed_tiles=fixed_tiles,
-                            )
-                    words_with_blanks = [
-                        word[:pos] + word[pos].lower() + word[pos + 1 :] for word in words_with_blanks
-                    ]
-                    valid_words += words_with_blanks
-                elif tile in starting_branch:
-                    valid_words += self.find_words(
-                        tiles=new_tiles,
-                        starting_branch=starting_branch[tile],
-                        pos=pos + 1,
-                        min_length=min_length,
-                        max_length=max_length,
-                        fixed_tiles=fixed_tiles,
-                    )
+        max_fixed_pos = max((p for _, p in fixed_tiles), default=-1)
+        fixed_at: list[str | None] = [None] * (max(max_length, max_fixed_pos) + 2)
+        for letter, fp in fixed_tiles:
+            fixed_at[fp] = letter
 
-        return valid_words
+        out: list[str] = []
+        _find_words_dfs(
+            starting_branch,
+            counts,
+            fixed_at,
+            pos,
+            0,
+            0,
+            min_length,
+            max_length,
+            out,
+        )
+        return out
 
     def get_move_params(
         self, coords: tuple[int, int], direction: str, board_state: BoardState
@@ -186,7 +217,14 @@ class ComputerPlayer(Player):
 
         return valid_move_params
 
-    def get_move(self, board_state: BoardState) -> Move:
+    def get_move(
+        self,
+        board_state: BoardState,
+        board: Board | None = None,
+        *,
+        scores: list[tuple[str, int]] | None = None,
+        turn: int | None = None,
+    ) -> Move:
         """Choose the highest-scoring valid move or pass when none score positively."""
         valid_locations = self.get_valid_locations(board_state)
 
@@ -210,5 +248,5 @@ class ComputerPlayer(Player):
         return Move((-1, -1), "", "")
 
     def move_heuristic(self, move: Move, board_state: BoardState) -> int:
-        """Score ``move`` with the shared rulebook (same as move quality)."""
+        """Rulebook score for this move on the given board."""
         return self.rulebook.score_move(move, board_state)

@@ -1,4 +1,4 @@
-"""Command-line Scrabble: board, rules, players, and game orchestration."""
+"""Board, rules, players, and game loop."""
 
 from __future__ import annotations
 

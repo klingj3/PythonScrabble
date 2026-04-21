@@ -1,4 +1,4 @@
-"""Tests for :class:`game.players.computer.ComputerPlayer`."""
+"""ComputerPlayer tests."""
 
 from __future__ import annotations
 

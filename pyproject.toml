@@ -1,11 +1,11 @@
 [project]
-name = "python-scrabble"
+name = "python-squabble"
 version = "0.1.0"
-description = "Command-line Scrabble with AI opponents"
+description = "Command-line SQUABBLE — a familiar-seeming but legally distinct word game"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "colorama>=0.4.6",
+    "rich>=13.7.0",
     "python-dotenv>=1.0.0",
 ]
 
@@ -13,11 +13,10 @@ dependencies = [
 dev = [
     "mypy>=1.8.0",
     "pytest>=8.0.0",
-    "types-colorama>=0.4.15",
 ]
 
 [project.scripts]
-scrabble = "game.cli:main"
+squabble = "game.cli:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -36,10 +35,6 @@ strict = true
 warn_return_any = true
 warn_unused_configs = true
 packages = ["game"]
-
-[[tool.mypy.overrides]]
-module = "colorama.*"
-ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "dotenv.*"

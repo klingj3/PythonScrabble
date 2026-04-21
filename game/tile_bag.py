@@ -14,7 +14,7 @@ class TileBag:
     """Shuffled pool of letter tiles drawn by players."""
 
     def __init__(self) -> None:
-        """Fill the bag from ``tile_counts.json``."""
+        """Load letter counts from tile_counts.json."""
         with open(data_path("tile_counts.json"), encoding="utf-8") as infile:
             self.tile_counts: dict[str, int] = json.load(infile)
 
@@ -29,13 +29,13 @@ class TileBag:
         return ", ".join([letter + ": " + str(count) for letter, count in pairs])
 
     def grab(self, num_tiles: int) -> list[str]:
-        """Draw up to ``num_tiles`` tiles after shuffling the bag."""
+        """Shuffle the bag, then take up to num_tiles from the front."""
         random.shuffle(self.bag)
         new_tiles, self.bag = self.bag[:num_tiles], self.bag[num_tiles:]
         return new_tiles
 
     def switch(self, discarded_tiles: list[str]) -> list[str]:
-        """Exchange tiles with the bag when bag rules allow; otherwise return ``discarded_tiles``."""
+        """Swap discarded tiles for new draws if the bag has enough left; else return them unchanged."""
         if len(self.bag) <= 7:
             sys.stderr.write("ERROR: Tiles can only be exchanged when there are more than 7 tiles in the bag.")
             return discarded_tiles

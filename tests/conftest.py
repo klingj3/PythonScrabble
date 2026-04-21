@@ -1,4 +1,4 @@
-"""Ensure DATA_ROOT resolves before any game imports."""
+"""Point DATA_ROOT at packaged data before imports."""
 
 from __future__ import annotations
 

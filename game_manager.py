@@ -1,4 +1,4 @@
-"""Backward-compatible launcher; prefer `uv run scrabble` or `python -m game`."""
+"""Backward-compatible launcher; prefer `uv run squabble` or `python -m game`."""
 
 from game.cli import main
 

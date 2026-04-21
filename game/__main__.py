@@ -1,4 +1,4 @@
-"""Allow `python -m game`."""
+"""Entry point for python -m game."""
 
 from __future__ import annotations
 

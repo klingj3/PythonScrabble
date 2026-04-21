@@ -32,15 +32,15 @@ class Player:
         """Return the player's display name."""
         return self.name
 
-    def get_move(self, board_state: BoardState) -> Move:
+    def get_move(self, board_state: BoardState, board: object | None = None) -> Move:
         """Return the next move (subclasses implement interaction or search)."""
         raise NotImplementedError
 
-    def prompt_move(self, board_state: BoardState) -> Move:
+    def prompt_move(self, board_state: BoardState, board: object | None = None) -> Move:
         """Obtain a move and remove spent tiles from the rack when applicable."""
 
         def remove_used_tiles(move: Move) -> None:
-            """Subtract tiles used for this play or exchange from ``self.tiles``."""
+            """Remove tiles spent on this play or exchange from the rack."""
             coords, word, direction = move.coords, move.word, move.dir
 
             if coords == (-2, -2):
@@ -55,7 +55,7 @@ class Player:
                             tile = "?"
                         self.tiles.remove(tile)
 
-        move = self.get_move(board_state)
+        move = self.get_move(board_state, board=board)
 
         if move.coords != (-1, -1):
             remove_used_tiles(move)

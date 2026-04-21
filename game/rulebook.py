@@ -13,8 +13,27 @@ from .paths import data_path
 from .types import BoardState, Move
 
 
+_TRIE_CHILDREN_KEY = "_C"
+
+
+def _annotate_trie_children(root: dict[str, Any]) -> None:
+    """Cache each trie node's letter children as (index, child) pairs for fast walks."""
+    a_ord = ord("A")
+    stack: list[dict[str, Any]] = [root]
+    while stack:
+        node = stack.pop()
+        if _TRIE_CHILDREN_KEY in node:
+            continue
+        children: list[tuple[int, dict[str, Any]]] = []
+        for letter, child in node.items():
+            if len(letter) == 1 and isinstance(child, dict):
+                children.append((ord(letter) - a_ord, child))
+                stack.append(child)
+        node[_TRIE_CHILDREN_KEY] = tuple(children)
+
+
 def _word_validity_checker(dictionary_root: dict[str, Any]) -> Callable[[str], bool]:
-    """Return a trie membership function with a bounded LRU (hot during AI move search)."""
+    """Trie lookup with a small LRU cache."""
 
     @lru_cache(maxsize=8192)
     def check(w_upper: str) -> bool:
@@ -55,6 +74,7 @@ class Rulebook:
             self.tile_scores: dict[str, int] = json.loads(infile.read())
 
         self.dictionary_root: dict[str, Any] = self.generate_dictionary_tree()
+        _annotate_trie_children(self.dictionary_root)
         self._check_word: Callable[[str], bool] = _word_validity_checker(self.dictionary_root)
         with open(data_path("english_dictionary.json"), encoding="utf-8") as infile:
             self.english_dictionary: dict[str, str] = json.loads(infile.read())
@@ -64,7 +84,7 @@ class Rulebook:
         return sum(self.tile_scores[tile] for tile in tiles)
 
     def define(self, word: str) -> str:
-        """Return a definition string for ``word`` or explain why it cannot be defined."""
+        """Definition text, or a short reason lookup failed."""
         word = word.upper()
         if not self.word_is_valid(word):
             return f"Word {word} does not appear in this game's list of scrabble words"
@@ -75,7 +95,7 @@ class Rulebook:
 
     @staticmethod
     def generate_dictionary_tree(dict_path: str | Path | None = None) -> dict[str, Any]:
-        """Load or build a prefix-tree dict with WORD/VALID nodes (default: packaged trie JSON)."""
+        """Load the packaged trie, or build one from a word list file."""
         default_txt = data_path("dictionary.txt")
         path = Path(dict_path) if dict_path is not None else default_txt
         path = path.resolve()
@@ -218,5 +238,5 @@ class Rulebook:
         return score
 
     def word_is_valid(self, word: str) -> bool:
-        """Return whether ``word`` is accepted by the Scrabble dictionary trie."""
+        """True if word is in the game dictionary."""
         return self._check_word(word.upper())

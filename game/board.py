@@ -2,9 +2,22 @@
 
 from __future__ import annotations
 
-from colorama import Fore, Style
+from dataclasses import dataclass, field
+
+from rich.console import Console, ConsoleOptions, RenderResult
+from rich.text import Text
 
 from .types import BoardState, Move
+from .ui import BLANK_TILE_STYLE, PREMIUM_GLYPHS, PREMIUM_STYLES, TILE_STYLE
+
+
+@dataclass
+class Highlight:
+    """Column / row / word-path to emphasise while the player types."""
+
+    col: int | None = None
+    row: int | None = None
+    path: tuple[tuple[int, int, str], ...] = field(default_factory=tuple)
 
 
 class Board:
@@ -30,33 +43,60 @@ class Board:
             "W  l   W   l  W",
         ]
         self.state: BoardState = ["".join([" " for _ in range(15)]) for _ in range(15)]
+        self.highlight: Highlight | None = None
 
-    def __str__(self) -> str:
-        """Return a colorized ASCII view with hex row/column indices."""
-        reset = Style.RESET_ALL
-        special_tile_color = {
-            " ": "",
-            "W": Fore.RED,
-            "w": Fore.MAGENTA,
-            "L": Fore.BLUE,
-            "l": Fore.CYAN,
-            "*": Fore.MAGENTA,
+    def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
+        """Yield Rich Text lines forming the coloured board grid."""
+        hl = self.highlight or Highlight()
+        path_chars: dict[tuple[int, int], str] = {
+            (r, c): ch for r, c, ch in hl.path
         }
 
-        string_rep = "   " + " ".join([str(hex(x))[-1] for x in range(15)]) + "\n"
-        for i in range(15):
-            line = ""
-            for j, tile in enumerate(self.state[i]):
-                if tile != " ":
-                    line += tile
+        # Column header
+        header = Text("    ")
+        for c in range(15):
+            col_hex = format(c, "x")
+            if hl.col == c and hl.row is None:
+                header.append(f" {col_hex} ", style="bold bright_yellow underline")
+            else:
+                header.append(f" {col_hex} ", style="grey50")
+        yield header
+
+        for r in range(15):
+            row_hex = format(r, "x")
+            line = Text()
+            if hl.row == r and hl.col is None:
+                line.append(f"{row_hex}  ", style="bold bright_yellow underline")
+            else:
+                line.append(f"{row_hex}  ", style="grey50")
+
+            for c in range(15):
+                tile = self.state[r][c]
+                if (r, c) in path_chars:
+                    ch = path_chars[(r, c)]
+                    line.append(f" {ch.upper()} ", style="bold black on bright_green")
+                elif tile != " ":
+                    style = BLANK_TILE_STYLE if tile.islower() else TILE_STYLE
+                    line.append(f" {tile.upper()} ", style=style)
                 else:
-                    line += special_tile_color[self.special_tiles[i][j]] + self.special_tiles[i][j] + reset
-                line += " "
-            string_rep += str(hex(i))[-1] + "  " + line + reset + "\n"
-        return string_rep + reset
+                    marker = self.special_tiles[r][c]
+                    if hl.col == c and hl.row == r:
+                        glyph = PREMIUM_GLYPHS.get(marker, "·")
+                        line.append(f" {glyph} ", style="bold black on bright_green")
+                    elif hl.col == c and hl.row is None:
+                        glyph = PREMIUM_GLYPHS.get(marker, "·")
+                        line.append(f" {glyph} ", style="bold bright_yellow")
+                    elif hl.row == r and hl.col is None:
+                        glyph = PREMIUM_GLYPHS.get(marker, "·")
+                        line.append(f" {glyph} ", style="bold bright_yellow")
+                    else:
+                        glyph = PREMIUM_GLYPHS.get(marker, "·")
+                        style = PREMIUM_STYLES.get(marker, "grey50")
+                        line.append(f" {glyph} ", style=style)
+            yield line
 
     def play_move(self, move: Move) -> bool:
-        """Place ``move.word`` on ``state`` at ``move.coords`` in ``move.dir``."""
+        """Write the word into the grid at coords along move.dir."""
         y, x = move.coords
         if move.dir == "D":
             for i, c in enumerate(move.word):

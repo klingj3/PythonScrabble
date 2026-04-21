@@ -9,7 +9,7 @@ from .game_master import GameMaster
 
 
 def main() -> int:
-    """Parse argv, run a match, and return an exit code (0, including after quit)."""
+    """Run from argv; exit 0 even when the player quits."""
     try:
         if len(sys.argv) == 1:
             gm = GameMaster(human_count=1, computer_count=1)

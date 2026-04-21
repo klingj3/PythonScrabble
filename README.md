@@ -1,6 +1,6 @@
-# Python command-line Scrabble
+# Python command-line SQUABBLE
 
-A terminal Scrabble implementation for local hot-seat play or against computer opponents that search the move space each turn.
+A familiar-seeming but legally distinct word game for the terminal: local hot-seat play or computer opponents that search the move space each turn.
 
 ## Requirements
 
@@ -32,8 +32,8 @@ You can set `DATA_ROOT` in a `.env` file at the project root (loaded automatical
 ## Run the game
 
 ```bash
-uv run scrabble
-uv run scrabble <human_players> <computer_players>
+uv run squabble
+uv run squabble <human_players> <computer_players>
 ```
 
 Or:

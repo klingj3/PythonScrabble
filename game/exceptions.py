@@ -7,7 +7,7 @@ class InvalidCoordinatesError(Exception):
     """Raised when coordinates fall outside the board."""
 
     def __init__(self, msg: str | None = None) -> None:
-        """Build the default message when ``msg`` is omitted."""
+        """Default message if msg is omitted."""
         if msg is None:
             msg = "Coordinates fall outside the bounds of the play area."
         super().__init__(msg)
@@ -17,7 +17,7 @@ class InvalidWordError(Exception):
     """Raised when a word is not in the Scrabble dictionary."""
 
     def __init__(self, word: str, msg: str | None = None) -> None:
-        """Attach ``word`` and an optional custom message."""
+        """Store word; optional custom message."""
         if msg is None:
             msg = "Word %s is not valid." % word
         super().__init__(msg)
@@ -35,7 +35,7 @@ class InvalidPlacementError(Exception):
         true_tile: str | None = None,
         attempted_tile: str | None = None,
     ) -> None:
-        """Optionally include board vs. rack tile details in the message."""
+        """Optional detail when the board letter and played letter disagree."""
         if msg is None:
             msg = "Word %s cannot be played in the specified position" % word
             if true_tile is not None and attempted_tile is not None:
@@ -45,4 +45,4 @@ class InvalidPlacementError(Exception):
 
 
 class QuitGame(Exception):
-    """Raised when the human player quits; handled by the CLI entry point."""
+    """Human chose quit; the CLI catches this."""

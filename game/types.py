@@ -1,4 +1,4 @@
-"""Shared types for moves and board rows (``BoardState``, ``Direction``)."""
+"""Move and board row types."""
 
 from __future__ import annotations
 
@@ -6,12 +6,12 @@ from typing import Literal, NamedTuple
 
 
 class Move(NamedTuple):
-    """Played or meta-move: ``coords`` (row, col), direction, and word or exchanged letters."""
+    """One play, pass, or exchange: row/col, axis (R/D), letters."""
 
     coords: tuple[int, int]
     dir: str
     word: str
 
 
-BoardState = list[str]  #: Fifteen strings of fifteen characters (rows).
-Direction = Literal["R", "D"]  #: Primary word axis for a play.
+BoardState = list[str]  # Fifteen strings of fifteen characters (rows).
+Direction = Literal["R", "D"]
