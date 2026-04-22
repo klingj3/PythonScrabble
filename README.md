@@ -1,32 +1,73 @@
-# Python Command-Line Scrabble
+# Python command-line SQUABBLE
 
-This is a command-line version of scrabble, which can be played by multiple people on the same machine or against an virtually unbeatable computer-controlled opponent or (opponents) which brute forces the best possible each turn. 
+A familiar-seeming but legally distinct word game for the terminal: local hot-seat play or computer opponents that search the move space each turn.
 
-![](docs/example_game.png)
+## Requirements
 
+- Python 3.12+
+- [uv](https://docs.astral.sh/uv/) (recommended) or pip
 
-#### Requirements
+## Setup
 
-Python 3.5 or higher. The only nonstandard packages used are colorama and ultrajson, and can be installed just through `pip3 install -r requirements.txt`
+From the repository root:
 
-## Overview
-I love scrabble, but I'm continuously disappointed by the quality of online scrabble games. A lot of them are slow, or require you to drag each tile on the board individually, or tell you if a word you're trying to play is in the dictionary which defeats a key part of the game, or have different two letter words than in the actual scrabble dictionary. This project is a command-line version of scrabble which can be played much more quickly than most web versions, and have a robust and reasonably challenging AI opponent (or opponents) to play against.
+```bash
+uv sync --extra dev
+```
 
-More than just providing  an alternate vector through which to play scrabble, this will be an exercise in a unique brand of game AI, as well as an algorithmic challenge as each player in scrabble has, including invalid options, a minimum of over a million possible moves at each turn, though there can be several billion moves available with certain held tiles and board configurations.
+Or with pip:
 
-## How to play
+```bash
+python3 -m pip install -e ".[dev]"
+```
 
-To start the game, navigate to the game directory and run `python3 game_manager.py <number of human opponents> <number of computer-controlled opponents>`.
+Copy `.env.example` to `.env` if you need to override where data files live (see **Data files** below).
 
-At each turn, the user has the following moves. 
+## Data files
 
-`quit` quits the game
+Dictionary and tile data are loaded from the directory pointed to by **`DATA_ROOT`**. If unset, it defaults to `game/data` next to the installed package (the usual layout in this repo).
 
-`skip` skips a turn
+You can set `DATA_ROOT` in a `.env` file at the project root (loaded automatically via `python-dotenv`) or export it in your shell.
 
-`exchange <LETTERS>` exchanges the tiles in the string (here letters) at the expense of a turn.
+## Run the game
 
-`7 7 R PYTHON` plays the word in the direction `R` for right (or `D` for down), starting at x, y, coordinates `7, 7`
+```bash
+uv run squabble
+uv run squabble <human_players> <computer_players>
+```
 
-`define <WORD>` prints out the definition of a word. The English dictionary used is the best JSON dictionary I could find
-but is missing some common words.
+Or:
+
+```bash
+python3 -m game
+python3 game_manager.py
+```
+
+### Moves (human)
+
+- `quit` — leave the game
+- `skip` — pass the turn
+- `exchange <LETTERS>` — trade tiles (when bag rules allow)
+- `define <WORD>` — look up a definition (when available)
+- `<x> <y> <R|D> <WORD>` — play at column `x`, row `y`, direction right or down (coordinates use the same hex digit column headers as the printed board)
+
+## Development
+
+```bash
+uv run pytest
+uv run mypy game tests
+```
+
+Type checking targets the `game` package and `tests` with strict defaults (`pyproject.toml`).
+
+## Layout
+
+- `game/board.py` — board state and rendering
+- `game/rulebook.py` — dictionary, scoring, validation
+- `game/tile_bag.py` — tile pool
+- `game/game_master.py` — turn loop and scoring
+- `game/players/` — human and computer players
+- `game/paths.py` — `DATA_ROOT` / `data_path()`
+- `tests/` — pytest suite
+
+The evaluation notebook under `jupyter_notebooks/` sets `DATA_ROOT` from the working directory; optional extras such as matplotlib/pandas are not part of the core package.
