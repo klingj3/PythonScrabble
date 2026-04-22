@@ -48,7 +48,7 @@ def _word_validity_checker(dictionary_root: dict[str, Any]) -> Callable[[str], b
 
 
 class Rulebook:
-    """Dictionary trie, English definitions, board premiums, and move scoring."""
+    """Dictionary trie, English definitions, board bonuses, and move scoring."""
 
     def __init__(self) -> None:
         """Load tile scores, dictionary tree, and English lookup data."""

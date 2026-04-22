@@ -9,28 +9,14 @@ from rich.console import Group, RenderableType
 from rich.live import Live
 from rich.panel import Panel
 from rich.prompt import Prompt
-from rich.table import Table
 from rich.text import Text
 
-from ..board import Board, Highlight
+from ..board import Board
 from ..exceptions import InvalidPlacementError, QuitGame
 from ..rulebook import Rulebook
 from ..types import BoardState, Move
-from ..ui import TILE_STYLE, console, warn
+from ..ui import console, parse_input_highlight, rack_panel, warn
 from .base import Player
-
-
-def _rack(tiles: list[str]) -> Panel:
-    """Render the player's rack as a row of coloured tile cards."""
-    body: RenderableType
-    if not tiles:
-        body = Text("(empty)", style="italic grey50")
-    else:
-        grid = Table.grid(padding=(0, 1))
-        grid.add_row(*(Text(f" {t.upper() if t != '?' else '?'} ", style=TILE_STYLE) for t in tiles))
-        body = grid
-    return Panel(body, title="[bold bright_yellow]Your rack[/]",
-                 border_style="bright_yellow", padding=(0, 1))
 
 
 _HELP_LINES = (
@@ -40,53 +26,6 @@ _HELP_LINES = (
     "define <WORD>           look up a definition",
     "<x> <y> <R|D> <WORD>    play a word  (e.g. 7 7 R PYTHON)",
 )
-
-
-def _parse_highlight(buf: str) -> Highlight:
-    """Derive column / row / word-path highlights from an in-progress input buffer."""
-    stripped = buf.lstrip().lower()
-    if stripped.startswith(("define", "exchange", "skip", "quit", "help")):
-        return Highlight()
-
-    tokens = buf.split()
-    trailing = bool(buf) and buf[-1].isspace()
-    if not tokens:
-        return Highlight()
-
-    def coord(tok: str) -> int | None:
-        try:
-            v = int(tok, 16)
-        except ValueError:
-            return None
-        return v if 0 <= v <= 14 else None
-
-    col = coord(tokens[0])
-    if col is None:
-        return Highlight()
-    if len(tokens) == 1 and not trailing:
-        return Highlight(col=col)
-
-    row = coord(tokens[1]) if len(tokens) >= 2 else None
-    if row is None:
-        return Highlight(col=col)
-    if len(tokens) == 2 and not trailing:
-        return Highlight(col=col, row=row)
-
-    direction = tokens[2][0].upper() if len(tokens) >= 3 and tokens[2] else ""
-    if direction not in ("R", "D"):
-        return Highlight(col=col, row=row)
-
-    word = tokens[3] if len(tokens) >= 4 else ""
-    path = tuple(
-        (row + k if direction == "D" else row,
-         col + k if direction == "R" else col,
-         ch.upper())
-        for k, ch in enumerate(word)
-        if ch.isalpha()
-        and 0 <= (row + k if direction == "D" else row) < 15
-        and 0 <= (col + k if direction == "R" else col) < 15
-    )
-    return Highlight(col=col, row=row, path=path)
 
 
 class HumanPlayer(Player):
@@ -110,7 +49,7 @@ class HumanPlayer(Player):
 
         err: str | None = None
         while True:
-            console.print(_rack(self.tiles))
+            console.print(rack_panel(self.tiles))
             if err:
                 warn(err)
             line = Prompt.ask("[bold bright_green]Action[/]", console=console)
@@ -129,8 +68,8 @@ class HumanPlayer(Player):
         message: str | None = None
 
         def render() -> RenderableType:
-            board.highlight = _parse_highlight(buf)
-            pieces: list[RenderableType] = [board, _rack(self.tiles)]
+            board.highlight = parse_input_highlight(buf)
+            pieces: list[RenderableType] = [board, rack_panel(self.tiles)]
             if message:
                 pieces.append(Panel(message, title="[bold bright_cyan]Message[/]",
                                     border_style="cyan", padding=(0, 1)))

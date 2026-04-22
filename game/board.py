@@ -2,29 +2,18 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-
 from rich.console import Console, ConsoleOptions, RenderResult
 from rich.text import Text
 
 from .types import BoardState, Move
-from .ui import BLANK_TILE_STYLE, PREMIUM_GLYPHS, PREMIUM_STYLES, TILE_STYLE
-
-
-@dataclass
-class Highlight:
-    """Column / row / word-path to emphasise while the player types."""
-
-    col: int | None = None
-    row: int | None = None
-    path: tuple[tuple[int, int, str], ...] = field(default_factory=tuple)
+from .ui import BLANK_TILE_STYLE, BONUS_GLYPHS, BONUS_STYLES, TILE_STYLE, Highlight
 
 
 class Board:
-    """15×15 grid with premium-square layout and applied letters."""
+    """15×15 grid with bonus-square layout and applied letters."""
 
     def __init__(self) -> None:
-        """Initialize empty rows and the standard premium-square pattern."""
+        """Initialize empty rows and the standard bonus-square pattern."""
         self.special_tiles: list[str] = [
             "W  l   W   l  W",
             " w   L   L   w ",
@@ -53,7 +42,7 @@ class Board:
         }
 
         # Column header
-        header = Text("    ")
+        header = Text("   ")
         for c in range(15):
             col_hex = format(c, "x")
             if hl.col == c and hl.row is None:
@@ -81,17 +70,17 @@ class Board:
                 else:
                     marker = self.special_tiles[r][c]
                     if hl.col == c and hl.row == r:
-                        glyph = PREMIUM_GLYPHS.get(marker, "·")
+                        glyph = ("→" if hl.direction == "R" else "↓") if hl.direction else BONUS_GLYPHS.get(marker, "·")
                         line.append(f" {glyph} ", style="bold black on bright_green")
                     elif hl.col == c and hl.row is None:
-                        glyph = PREMIUM_GLYPHS.get(marker, "·")
+                        glyph = BONUS_GLYPHS.get(marker, "·")
                         line.append(f" {glyph} ", style="bold bright_yellow")
                     elif hl.row == r and hl.col is None:
-                        glyph = PREMIUM_GLYPHS.get(marker, "·")
+                        glyph = BONUS_GLYPHS.get(marker, "·")
                         line.append(f" {glyph} ", style="bold bright_yellow")
                     else:
-                        glyph = PREMIUM_GLYPHS.get(marker, "·")
-                        style = PREMIUM_STYLES.get(marker, "grey50")
+                        glyph = BONUS_GLYPHS.get(marker, "·")
+                        style = BONUS_STYLES.get(marker, "grey50")
                         line.append(f" {glyph} ", style=style)
             yield line
 
