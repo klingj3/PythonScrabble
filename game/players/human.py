@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import random
 import sys
 from collections.abc import Generator
 
@@ -22,6 +23,7 @@ from .base import Player
 _HELP_LINES = (
     "quit                    leave the game",
     "skip                    pass the turn",
+    "shuffle                 randomize the order of your rack",
     "exchange <LETTERS>      trade tiles for new ones",
     "define <WORD>           look up a definition",
     "<x> <y> <R|D> <WORD>    play a word  (e.g. 7 7 R PYTHON)",
@@ -60,6 +62,8 @@ class HumanPlayer(Player):
             result = self._interpret(segments, board_state)
             if isinstance(result, Move):
                 return result
+            if result == "shuffle":
+                continue
             err = "\n".join(_HELP_LINES) if result == "help" else result
 
     def _tty_get_move(self, board: Board, board_state: BoardState) -> Move:
@@ -68,8 +72,11 @@ class HumanPlayer(Player):
         message: str | None = None
 
         def render() -> RenderableType:
-            board.highlight = parse_input_highlight(buf)
-            pieces: list[RenderableType] = [board, rack_panel(self.tiles)]
+            hl = parse_input_highlight(buf)
+            board.highlight = hl
+            needed = [ch for r, c, ch in hl.path if board.state[r][c] == " "]
+            used = _rack_used_indices(self.tiles, needed)
+            pieces: list[RenderableType] = [board, rack_panel(self.tiles, used)]
             if message:
                 pieces.append(Panel(message, title="[bold bright_cyan]Message[/]",
                                     border_style="cyan", padding=(0, 1)))
@@ -99,7 +106,9 @@ class HumanPlayer(Player):
                     result = self._interpret(segments, board_state)
                     if isinstance(result, Move):
                         return result
-                    message = "\n".join(_HELP_LINES) if result == "help" else result
+                    message = None if result == "shuffle" else (
+                        "\n".join(_HELP_LINES) if result == "help" else result
+                    )
                     live.update(render(), refresh=True)
         finally:
             keys.close()
@@ -114,6 +123,9 @@ class HumanPlayer(Player):
                 raise QuitGame()
             if segments[0] == "help":
                 return "help"
+            if segments[0] == "shuffle":
+                random.shuffle(self.tiles)
+                return "shuffle"
             return f"Command '{segments[0]}' not recognized. Type 'help' for help."
 
         if len(segments) == 2 and segments[0] == "exchange":
@@ -165,6 +177,22 @@ class HumanPlayer(Player):
                 except ValueError:
                     return False
         return True
+
+
+def _rack_used_indices(rack: list[str], needed: list[str]) -> set[int]:
+    """Return the rack indices consumed by *needed* letters (blanks used as fallback)."""
+    used: set[int] = set()
+    for letter in needed:
+        for i, tile in enumerate(rack):
+            if i not in used and tile.upper() == letter:
+                used.add(i)
+                break
+        else:
+            for i, tile in enumerate(rack):
+                if i not in used and tile == "?":
+                    used.add(i)
+                    break
+    return used
 
 
 def _keystrokes() -> Generator[str, None, None]:

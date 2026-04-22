@@ -9,7 +9,7 @@ from .exceptions import QuitGame
 from .players import ComputerPlayer, HumanPlayer
 from .rulebook import Rulebook
 from .tile_bag import TileBag
-from .ui import GamePresenter, info, success, warn
+from .ui import GamePresenter, info, show_launch_splash, success, warn
 
 
 class GameMaster:
@@ -53,6 +53,7 @@ class GameMaster:
 
     def play_game(self, verbose: bool = False) -> None:
         """Play until passes or a player goes out, then apply endgame adjustments."""
+        show_launch_splash()
         self.reset_game()
 
         consecutive_skips = 0
@@ -71,8 +72,8 @@ class GameMaster:
             for i, player in enumerate(self.players):
                 turn_number += 1
                 is_human = isinstance(player, HumanPlayer)
-                self.presenter.print_turn_header(turn_number, player.name, is_human)
                 if is_human:
+                    self.presenter.print_turn_header(turn_number, player.name, is_human)
                     self.presenter.print_sidebar(self.players, self.player_scores)
 
                 try:

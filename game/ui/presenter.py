@@ -137,6 +137,7 @@ class GamePresenter:
 
         running_scores = list(scores)
 
+        console.clear()
         try:
             with Live(
                 frame(running_scores, None),

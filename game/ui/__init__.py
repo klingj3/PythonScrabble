@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from .console import console, error, info, success, warn
 from .highlight import Highlight, parse_input_highlight
-from .panels import goodbye_banner, legend, rack_panel, welcome_banner
+from .panels import goodbye_banner, legend, rack_panel, show_launch_splash
 from .presenter import GamePresenter
 from .styles import (
     BLANK_TILE_STYLE,
@@ -30,8 +30,8 @@ __all__ = [
     "legend",
     "parse_input_highlight",
     "rack_panel",
+    "show_launch_splash",
     "success",
     "tile_cell",
     "warn",
-    "welcome_banner",
 ]
