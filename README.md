@@ -2,6 +2,8 @@
 
 A familiar-seeming but legally distinct word game for the terminal: local hot-seat play or computer opponents that search the move space each turn.
 
+![Squabble demo](docs/demo.gif)
+
 ## Requirements
 
 - Python 3.12+
